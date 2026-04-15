@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import pLimit from 'p-limit';
 import ScraperService from '../src/services/ScraperService.js';
 import ProxyManager from '../src/managers/ProxyManager.js';
 
@@ -21,32 +22,29 @@ app.get('/api/health', (req, res) => {
  */
 app.post('/api/scan', async (req, res) => {
     try {
-        const { numbers, concurrency = 20, timeout = 9000 } = req.body;
+        const { numbers, concurrency = 20, timeout = 5000 } = req.body;
 
         if (!Array.isArray(numbers)) {
             return res.status(400).json({ error: 'Numbers must be an array' });
         }
 
-        // Refresh proxies if pool is low
+        // Refresh proxies in background without blocking the request
         if (ProxyManager.count < 30) {
-            await ProxyManager.refreshPool();
+            ProxyManager.refreshPool().catch(err => console.error('Proxy refresh failed:', err.message));
         }
 
-        const results = [];
-        const chunks = [];
-        
-        // Split into tiny sub-batches to handle concurrency
-        for (let i = 0; i < numbers.length; i += concurrency) {
-            chunks.push(numbers.slice(i, i + concurrency));
-        }
-
-        for (const chunk of chunks) {
-            const batchResults = await Promise.all(chunk.map(num => {
-                const proxy = ProxyManager.getRandomProxy();
-                return ScraperService.checkNumber(num, proxy, timeout);
-            }));
-            results.push(...batchResults);
-        }
+        // Process all numbers concurrently with a p-limit cap instead of
+        // sequential chunks, so the total wall-clock time is bounded by
+        // one round of timeouts rather than ceil(n/concurrency) rounds.
+        const limit = pLimit(concurrency);
+        const results = await Promise.all(
+            numbers.map(num =>
+                limit(() => {
+                    const proxy = ProxyManager.getRandomProxy();
+                    return ScraperService.checkNumber(num, proxy, timeout);
+                })
+            )
+        );
 
         res.json({
             total: numbers.length,
