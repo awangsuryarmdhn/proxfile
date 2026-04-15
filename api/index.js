@@ -8,9 +8,6 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 
-// Serve static files from public directory
-app.use(express.static('public'));
-
 /**
  * Health Check API
  */

@@ -1,5 +1,4 @@
 import axios from 'axios';
-import chalk from 'chalk';
 import { CONFIG } from '../../config.js';
 
 class ProxyManager {
@@ -28,7 +27,7 @@ class ProxyManager {
             this.proxies = [...new Set(rawProxies)];
             return this.proxies.length;
         } catch (error) {
-            console.error(chalk.red('Failed to fetch proxies:', error.message));
+            console.error('Failed to fetch proxies:', error.message);
             return 0;
         }
     }
