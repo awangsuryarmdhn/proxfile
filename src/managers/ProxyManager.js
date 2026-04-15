@@ -14,7 +14,7 @@ class ProxyManager {
     async refreshPool() {
         try {
             const fetchPromises = this.sources.map(url => 
-                axios.get(url, { timeout: 10000 }).catch(() => null)
+                axios.get(url, { timeout: 4000 }).catch(() => null)
             );
 
             const results = await Promise.all(fetchPromises);
