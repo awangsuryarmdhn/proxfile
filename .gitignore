@@ -1,0 +1,16 @@
+node_modules
+.vercel
+FILE
+*.log
+.DS_Store
+.env
+phantom_v1.js_backup
+utils_legacy.js_backup
+admin.js
+test_*.js
+debug.js
+index_legacy.js
+results_*.csv
+proxy_manager.js
+utils.js
+phantom.js
