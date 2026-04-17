@@ -18,3 +18,5 @@ services:
         sync: false # Set this in the Render Dashboard
       - key: SMTP_PASS
         sync: false # Set this in the Render Dashboard
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false # Get this from @BotFather

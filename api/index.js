@@ -11,6 +11,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PUBLIC_PATH = path.join(__dirname, '..', 'public');
 
+import TelegramService from '../src/services/TelegramService.js';
+
 const app = express();
 
 app.use(cors());
@@ -96,6 +98,71 @@ app.post('/api/appeal', async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message || 'Internal server error' });
     }
+});
+
+/**
+ * Telegram Webhook Endpoint
+ * Triggers on every incoming message. Returns 200 immediately to acknowledge Telegram,
+ * then processes commands asynchronously.
+ */
+app.post('/api/webhook/telegram', (req, res) => {
+    // 1. Immediately acknowledge Telegram to prevent them retrying the webhook
+    res.sendStatus(200);
+
+    // 2. Parse Message
+    const msg = TelegramService.parseMessage(req.body);
+    if (!msg) return;
+
+    // 3. Process Command asynchronously
+    (async () => {
+        const text = msg.text.toLowerCase();
+        
+        if (text.startsWith('/start')) {
+            await TelegramService.sendMessage(msg.chatId, `🚦 *NITRO ENGINE v3 ACTIVE*\n\nHello ${msg.username}. The bot is running natively on Render via WebHooks (Zero Waste Architecture).\n\nCommands:\n\`/scan <number>\` - Check an individual number\n\`/appeal <number>\` - Send Auto-Ban Appeal`);
+            return;
+        }
+
+        if (text.startsWith('/scan')) {
+            const num = text.replace('/scan', '').trim();
+            if (!num) {
+                await TelegramService.sendMessage(msg.chatId, '⚠️ Please provide a number. Example: `/scan 628123456789`');
+                return;
+            }
+
+            await TelegramService.sendMessage(msg.chatId, `⏳ Scanning *${num}*...`);
+            
+            // Warmup proxy quietly
+            if (ProxyManager.count < 5) await ProxyManager.refreshPool().catch(()=>null);
+            
+            const proxy = ProxyManager.getRandomProxy();
+            const result = await ScraperService.checkNumber(num, proxy, 8000);
+
+            if (result.exists) {
+                await TelegramService.sendMessage(msg.chatId, `✅ *HIT!* \n${num} is registered on WhatsApp.`);
+            } else {
+                await TelegramService.sendMessage(msg.chatId, `❌ *MISS* \n${num} is NOT registered (or proxy blocked).`);
+            }
+            return;
+        }
+
+        if (text.startsWith('/appeal')) {
+            const num = text.replace('/appeal', '').trim();
+            if (!num) {
+                await TelegramService.sendMessage(msg.chatId, '⚠️ Please provide a number. Example: `/appeal 628123456789`');
+                return;
+            }
+
+            await TelegramService.sendMessage(msg.chatId, `⏳ Transmitting automatic appeal for *${num}*...`);
+            const result = await AppealManager.executeAppeal(num);
+
+            if (result.status === 'ERROR') {
+                await TelegramService.sendMessage(msg.chatId, `❌ *APPEAL FAILED*\nError: ${result.message || result.error}`);
+            } else {
+                await TelegramService.sendMessage(msg.chatId, `✅ *APPEAL DISPATCHED*\nSuccess! Target: ${result.email || 'Meta Support'}`);
+            }
+            return;
+        }
+    })().catch(err => console.error('[Telegram Webhook Error]', err.message));
 });
 
 /**
