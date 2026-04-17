@@ -150,11 +150,16 @@ app.post('/api/webhook/telegram', (req, res) => {
 
             await TelegramService.sendMessage(msg.chatId, `⏳ Scanning *${num}*...`);
             
-            // Warmup proxy quietly
-            if (ProxyManager.count < 5) await ProxyManager.refreshPool().catch(()=>null);
+            // Warmup proxy in BACKGROUND (don't block the user)
+            if (ProxyManager.count < 10) {
+                ProxyManager.refreshPool().catch(() => null);
+            }
             
+            // If pool is empty, try a direct check or wait very briefly
             const proxy = ProxyManager.getRandomProxy();
-            const result = await ScraperService.checkNumber(num, proxy, 8000);
+            
+            // Reduced timeout for snappier bot response
+            const result = await ScraperService.checkNumber(num, proxy, 4500);
 
             if (result.exists) {
                 await TelegramService.sendMessage(msg.chatId, `✅ *HIT!* \n${num} is registered on WhatsApp.`);
