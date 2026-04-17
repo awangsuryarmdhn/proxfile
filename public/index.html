@@ -3,208 +3,340 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NITRO WEB | High-Speed WA Checker</title>
+    <title>NITRO V3 | Professional WA Scanner</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #ff007a;
-            --secondary: #00f2ff;
-            --bg: #0a0a0f;
-            --card: rgba(255, 255, 255, 0.05);
-            --border: rgba(255, 255, 255, 0.1);
+            --primary: #5865F2;
+            --secondary: #00D2FF;
+            --accent: #FF00E5;
+            --success: #00FFAD;
+            --bg: #030305;
+            --glass: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
         
         body {
-            background: var(--bg);
-            color: #fff;
+            background-color: var(--bg);
+            color: #f7f7f7;
             min-height: 100vh;
             overflow-x: hidden;
-            background: radial-gradient(circle at top right, #1a1a2e, #0a0a0f);
+            background-image: 
+                radial-gradient(circle at 20% 20%, rgba(88, 101, 242, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(255, 0, 229, 0.1) 0%, transparent 40%);
         }
 
-        .container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+        .navbar {
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
 
-        header { text-align: center; margin-bottom: 60px; }
-        h1 { font-size: 3.5rem; font-weight: 800; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
-        .subtitle { color: #888; font-size: 1.1rem; }
+        .logo { font-size: 1.5rem; font-weight: 800; letter-spacing: 2px; background: linear-gradient(to right, #fff, var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
-        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
+        .status-badge { background: rgba(0, 255, 173, 0.1); color: var(--success); padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(0, 255, 173, 0.2); }
 
-        .glass-card { background: var(--card); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 24px; padding: 30px; transition: 0.3s; }
-        .glass-card:hover { border-color: var(--primary); transform: translateY(-5px); }
+        .main { max-width: 1200px; margin: 40px auto; padding: 0 20px; display: grid; grid-template-columns: 350px 1fr; gap: 30px; }
 
-        .upload-area { border: 2px dashed var(--border); border-radius: 15px; padding: 40px; text-align: center; cursor: pointer; transition: 0.3s; }
-        .upload-area:hover { background: rgba(255, 255, 255, 0.02); border-color: var(--secondary); }
-        .upload-area input { display: none; }
+        .card { background: var(--glass); border: 1px solid var(--border); border-radius: 24px; padding: 25px; backdrop-filter: blur(20px); height: fit-content; }
 
-        .btn { background: linear-gradient(to right, var(--primary), #cc0061); color: white; border: none; padding: 15px 30px; border-radius: 12px; font-weight: 600; cursor: pointer; width: 100%; transition: 0.3s; margin-top: 20px; }
+        h2 { font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+
+        .upload-section { margin-bottom: 30px; }
+        .drop-zone { border: 2px dashed var(--border); border-radius: 16px; padding: 40px 20px; text-align: center; cursor: pointer; transition: 0.3s; }
+        .drop-zone:hover { border-color: var(--secondary); background: rgba(255,255,255,0.02); }
+        .drop-zone p { color: #888; margin-top: 10px; font-size: 0.9rem; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px; }
+        .stat-box { background: rgba(0,0,0,0.2); border-radius: 16px; padding: 15px; text-align: center; border: 1px solid var(--border); }
+        .stat-val { font-size: 1.8rem; font-weight: 800; display: block; }
+        .stat-label { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+
+        .progress-container { margin-top: 25px; }
+        .progress-meta { display: flex; justify-content: space-between; font-size: 0.85rem; color: #888; margin-bottom: 8px; }
+        .progress-bar-bg { height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; width: 0%; background: linear-gradient(to right, var(--primary), var(--secondary)); transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 0 10px var(--primary); }
+
+        .btn { width: 100%; padding: 14px; border-radius: 12px; border: none; font-weight: 600; cursor: pointer; transition: 0.3s; font-size: 0.95rem; margin-top: 15px; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), #4752c4); color: white; }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(88, 101, 242, 0.4); }
+        .btn-secondary { background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--border); }
+        .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn:hover:not(:disabled) { box-shadow: 0 0 20px rgba(255, 0, 122, 0.4); }
 
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .stat-item { background: rgba(0,0,0,0.3); padding: 15px; border-radius: 15px; text-align: center; }
-        .stat-val { font-size: 1.5rem; font-weight: 800; color: var(--secondary); }
-        .stat-label { color: #666; font-size: 0.8rem; text-transform: uppercase; }
+        .log-container { background: rgba(0,0,0,0.3); border-radius: 16px; border: 1px solid var(--border); height: 400px; display: flex; flex-direction: column; }
+        .log-header { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .log-body { flex: 1; overflow-y: auto; padding: 15px 20px; font-family: monospace; font-size: 0.85rem; line-height: 1.6; }
+        .log-entry { margin-bottom: 8px; display: flex; gap: 10px; }
+        .log-time { color: #555; }
+        .log-tag { padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; height: fit-content; margin-top: 2px; }
+        .tag-hit { background: rgba(0, 255, 173, 0.1); color: var(--success); }
+        .tag-miss { background: rgba(255, 255, 255, 0.05); color: #888; }
+        .tag-info { background: rgba(88, 101, 242, 0.1); color: var(--primary); }
 
-        .progress-container { margin-top: 20px; height: 10px; background: rgba(255,255,255,0.05); border-radius: 5px; overflow: hidden; }
-        .progress-bar { width: 0%; height: 100%; background: linear-gradient(to right, var(--primary), var(--secondary)); transition: 0.4s; }
+        input[type="file"] { display: none; }
 
-        .results-log { height: 300px; overflow-y: auto; background: rgba(0,0,0,0.5); border-radius: 15px; padding: 20px; font-family: monospace; font-size: 0.85rem; border: 1px solid var(--border); }
-        .log-entry { margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .log-hit { color: #00ff88; font-weight: bold; }
-        .log-miss { color: #ff3333; }
+        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+        .loading { animation: pulse 1.5s infinite; }
 
-        @media (max-width: 768px) { .dashboard { grid-template-columns: 1fr; } }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+        @media (max-width: 900px) { .main { grid-template-columns: 1fr; } .main > :first-child { order: 2; } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>NITRO WEB 2.2</h1>
-            <p class="subtitle">Stateless High-Speed WhatsApp Checker for Vercel</p>
-        </header>
+    <nav class="navbar">
+        <div class="logo">NITRO V3.0</div>
+        <div class="status-badge">SYSTEM STANDBY</div>
+    </nav>
 
-        <div class="dashboard">
-            <div class="glass-card">
-                <h3>🚀 Import & Configuration</h3>
-                <p style="color: #666; margin-bottom: 20px;">Upload your TXT file to start scanning.</p>
-                <div class="upload-area" id="dropZone">
-                    <p id="fileName">Drop file here or click to upload</p>
-                    <input type="file" id="fileInput" accept=".txt">
+    <div class="main">
+        <aside>
+            <div class="card">
+                <h2>⚙️ Configuration</h2>
+                
+                <div class="upload-section">
+                    <label class="drop-zone" id="dropZone">
+                        <input type="file" id="fileInput" accept=".txt">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--secondary)">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                        </svg>
+                        <p id="fileLabel">Drop .txt file or click to browse</p>
+                    </label>
                 </div>
-                <button class="btn" id="startBtn" disabled>START ENGINE</button>
-                <button class="btn" style="background: #333;" id="downloadBtn" disabled>DOWNLOAD RESULTS</button>
-            </div>
 
-            <div class="glass-card">
-                <h3>📊 Real-time Analytics</h3>
-                <div class="stats-grid" style="margin-top: 20px;">
-                    <div class="stat-item"><div class="stat-val" id="totalCheck">0</div><div class="stat-label">Total</div></div>
-                    <div class="stat-item"><div class="stat-val" id="processedCheck">0</div><div class="stat-label">Processed</div></div>
-                    <div class="stat-item"><div class="stat-val" id="hitCheck" style="color: #00ff88;">0</div><div class="stat-label">Registered</div></div>
-                    <div class="stat-item"><div class="stat-val" id="speedCheck">0</div><div class="stat-label">Num/Min</div></div>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <span class="stat-val" id="totalCount">0</span>
+                        <span class="stat-label">Total</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-val" id="hitCount" style="color: var(--success)">0</span>
+                        <span class="stat-label">Hits</span>
+                    </div>
+                    <div class="stat-box" style="grid-column: span 2">
+                        <span class="stat-val" id="speedVal">0</span>
+                        <span class="stat-label">Checked / Minute</span>
+                    </div>
                 </div>
+
                 <div class="progress-container">
-                    <div class="progress-bar" id="progressBar"></div>
+                    <div class="progress-meta">
+                        <span id="progressPct">0% Checked</span>
+                        <span id="etaTime">ETA: --:--</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="progressBar"></div>
+                    </div>
                 </div>
-                <p id="etaText" style="margin-top: 10px; color: #888; text-align: center;">ETA: --:--</p>
-            </div>
-        </div>
 
-        <div class="glass-card">
-            <h3>📝 Activity Logs</h3>
-            <div class="results-log" id="logBox">
-                <div class="log-entry">Engine ready. Waiting for input...</div>
+                <button class="btn btn-primary" id="startBtn" disabled>IGNITE SCANNER</button>
+                <button class="btn btn-secondary" id="stopBtn" disabled>EMERGENCY STOP</button>
+                <button class="btn btn-secondary" id="downloadBtn" disabled style="background: rgba(0, 210, 255, 0.1); color: var(--secondary); border-color: rgba(0, 210, 255, 0.2)">EXPORT RESULTS (CSV)</button>
             </div>
-        </div>
+            
+            <p style="text-align: center; color: #444; font-size: 0.75rem; margin-top: 20px;">
+                &copy; 2026 NITRO WEB - High-Speed Stateless Engine
+            </p>
+        </aside>
+
+        <section>
+            <div class="log-container">
+                <div class="log-header">
+                    <h2 style="margin-bottom: 0">🖥️ Live Terminal</h2>
+                    <span style="font-size: 0.75rem; color: #666;" id="activeThreads">0 Threads Active</span>
+                </div>
+                <div class="log-body" id="logBox">
+                    <div class="log-entry">
+                        <span class="log-time">[12:00:00]</span>
+                        <span class="log-tag tag-info">INFO</span>
+                        <span class="log-msg">Kernel initialized. Ready for list ingestion.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
     </div>
 
     <script>
         const fileInput = document.getElementById('fileInput');
-        const dropZone = document.getElementById('dropZone');
         const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
         const downloadBtn = document.getElementById('downloadBtn');
         const logBox = document.getElementById('logBox');
         
         let numbers = [];
         let results = [];
-        let isScanning = false;
+        let isRunning = false;
+        let controller = null;
 
-        dropZone.onclick = () => fileInput.click();
-        fileInput.onchange = (e) => handleFile(e.target.files[0]);
-
-        function handleFile(file) {
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
             if (!file) return;
-            document.getElementById('fileName').innerText = file.name;
+            
             const reader = new FileReader();
-            reader.onload = (e) => {
-                const text = e.target.result;
-                numbers = text.split(/\r?\n/).map(l => l.trim()).filter(l => l !== '');
-                document.getElementById('totalCheck').innerText = numbers.length;
+            reader.onload = (ev) => {
+                const text = ev.target.result;
+                numbers = text.split(/\r?\n/).map(l => l.replace(/\D/g, '')).filter(l => l.length > 5);
+                document.getElementById('totalCount').innerText = numbers.length;
+                document.getElementById('fileLabel').innerText = `${file.name} (${numbers.length})`;
                 startBtn.disabled = false;
-                addLog(`Loaded ${numbers.length} numbers from ${file.name}`);
+                addLog('INFO', `Successfully ingested ${numbers.length} identifiers.`);
             };
             reader.readAsText(file);
-        }
+        };
 
-        function addLog(msg, type = '') {
+        function addLog(tag, msg) {
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
             const div = document.createElement('div');
-            div.className = `log-entry ${type}`;
-            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            div.className = 'log-entry';
+            div.innerHTML = `
+                <span class="log-time">[${time}]</span>
+                <span class="log-tag tag-${tag.toLowerCase()}">${tag}</span>
+                <span class="log-msg">${msg}</span>
+            `;
             logBox.prepend(div);
+            if (logBox.children.length > 50) logBox.lastElementChild.remove();
         }
 
         startBtn.onclick = async () => {
-            isScanning = true;
-            startBtn.disabled = true;
+            if (numbers.length === 0) return;
+            
+            isRunning = true;
             results = [];
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            downloadBtn.disabled = true;
+            document.querySelector('.status-badge').innerText = 'SCANNING...';
+            document.querySelector('.status-badge').style.color = '#00D2FF';
+            document.querySelector('.status-badge').style.background = 'rgba(0, 210, 255, 0.1)';
+
             let processed = 0;
             let hits = 0;
             const startTime = Date.now();
-            const BATCH_SIZE = 150; // Balanced for Vercel/Proxy
+            
+            // CHUNKING LOGIC: Essential for Vercel stability
+            const CHUNK_SIZE = 30; // Small chunks for safe Vercel execution
+            const MAX_CONCURRENT_CHUNKS = 3; // Browser-side parallel batches
+            
+            const chunks = [];
+            for (let i = 0; i < numbers.length; i += CHUNK_SIZE) {
+                chunks.push(numbers.slice(i, i + CHUNK_SIZE));
+            }
 
-            addLog('Ignition... Nitro Pushing Engaged.', 'log-hit');
+            addLog('INFO', `Scanner ignition. Partitioned into ${chunks.length} task blocks.`);
 
-            for (let i = 0; i < numbers.length; i += BATCH_SIZE) {
-                if (!isScanning) break;
-                const batch = numbers.slice(i, i + BATCH_SIZE);
-                
+            async function processChunk(chunk) {
+                if (!isRunning) return;
                 try {
                     const resp = await fetch('/api/scan', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ numbers: batch })
+                        body: JSON.stringify({ numbers: chunk, concurrency: 10, timeout: 7000 })
                     });
-                    if (!resp.ok) {
-                        const text = await resp.text();
-                        throw new Error(`Server error ${resp.status}: ${text}`);
-                    }
-                    const data = await resp.json();
                     
-                    data.results.forEach(res => {
-                        results.push(res);
-                        if (res.exists) {
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                    
+                    const data = await resp.json();
+                    data.results.forEach(r => {
+                        results.push(r);
+                        if (r.exists) {
                             hits++;
-                            addLog(`[REG] ${res.number}`, 'log-hit');
+                            addLog('HIT', `Reg: ${r.number}`);
                         }
                     });
-
-                    processed += batch.length;
                     
-                    // UI Updates
-                    const pct = (processed / numbers.length) * 100;
-                    document.getElementById('progressBar').style.width = pct + '%';
-                    document.getElementById('processedCheck').innerText = processed;
-                    document.getElementById('hitCheck').innerText = hits;
-                    
-                    const elapsedMin = (Date.now() - startTime) / 60000;
-                    const speed = Math.floor(processed / elapsedMin) || 0;
-                    document.getElementById('speedCheck').innerText = speed;
-                    
-                    const eta = speed > 0 ? Math.ceil((numbers.length - processed) / speed) : '--';
-                    document.getElementById('etaText').innerText = `ETA: ${eta} minutes remaining`;
-
+                    processed += chunk.length;
+                    updateUI(processed, hits, startTime);
                 } catch (err) {
-                    addLog(`Batch Error: ${err.message}`, 'log-miss');
+                    addLog('MISS', `Batch failed: ${err.message}. Auto-skipping block.`);
+                    processed += chunk.length; // Count as processed to keep moving
+                    updateUI(processed, hits, startTime);
                 }
             }
 
-            addLog('Scan Complete!', 'log-hit');
-            downloadBtn.disabled = false;
+            // Parallel chunk execution
+            const chunkQueue = [...chunks];
+            async function worker() {
+                while (chunkQueue.length > 0 && isRunning) {
+                    document.getElementById('activeThreads').innerText = `${MAX_CONCURRENT_CHUNKS} Threads Active`;
+                    const chunk = chunkQueue.shift();
+                    await processChunk(chunk);
+                }
+            }
+
+            const workers = Array(Math.min(MAX_CONCURRENT_CHUNKS, chunks.length)).fill(worker);
+            await Promise.all(workers.map(w => w()));
+
+            addLog('INFO', `Process complete. Found ${hits} active registers.`);
+            document.querySelector('.status-badge').innerText = 'SCAN FINISHED';
+            document.querySelector('.status-badge').style.color = 'var(--success)';
+            document.querySelector('.status-badge').style.background = 'rgba(0, 255, 173, 0.1)';
+            
+            isRunning = false;
             startBtn.disabled = false;
+            stopBtn.disabled = true;
+            downloadBtn.disabled = false;
+        };
+
+        function updateUI(processed, hits, startTime) {
+            const pct = Math.floor((processed / numbers.length) * 100);
+            document.getElementById('processedCount')?.innerText ? null : ''; // Placeholder
+            document.getElementById('progressBar').style.width = `${pct}%`;
+            document.getElementById('progressPct').innerText = `${pct}% Scanned`;
+            document.getElementById('hitCount').innerText = hits;
+            
+            const elapsedMin = (Date.now() - startTime) / 60000;
+            const speed = Math.floor(processed / elapsedMin) || 0;
+            document.getElementById('speedVal').innerText = speed;
+            
+            if (speed > 0) {
+                const rem = numbers.length - processed;
+                const etaMin = Math.ceil(rem / speed);
+                document.getElementById('etaTime').innerText = `ETA: ~${etaMin}m`;
+            }
+        }
+
+        stopBtn.onclick = () => {
+            isRunning = false;
+            addLog('MISS', 'Emergency shutdown sequence triggered.');
+            stopBtn.disabled = true;
         };
 
         downloadBtn.onclick = () => {
+            const date = new Date().toISOString().split('T')[0];
             const content = results.map(r => `${r.number},${r.exists ? 'YES' : 'NO'}`).join('\n');
             const blob = new Blob([content], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `results_${Date.now()}.csv`;
+            a.download = `NITRO_RESULTS_${date}.csv`;
             a.click();
         };
+
+        // Theme polish: Drop zone animations
+        const dropZone = document.getElementById('dropZone');
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
+            dropZone.addEventListener(ev, e => e.preventDefault());
+        });
+
+        dropZone.addEventListener('drop', e => {
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                fileInput.files = e.dataTransfer.files;
+                fileInput.onchange({ target: { files: [file] } });
+            }
+        });
     </script>
 </body>
 </html>

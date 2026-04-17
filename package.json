@@ -2,9 +2,13 @@
   "name": "antipro",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "api/index.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node api/index.js",
+    "dev": "node api/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -18,7 +22,9 @@
     "express": "^4.18.2",
     "fs-extra": "^11.3.4",
     "https-proxy-agent": "^9.0.0",
+    "nodemailer": "^8.0.5",
     "ora": "^9.3.0",
-    "p-limit": "^7.3.0"
+    "p-limit": "^7.3.0",
+    "p-retry": "^8.0.0"
   }
 }
