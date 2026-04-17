@@ -16,6 +16,18 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// ---------------------------------
+// GLOBAL CRASH PROTECTION
+// Prevents 502 Bad Gateway on Render due to stray socket drops
+// ---------------------------------
+process.on('uncaughtException', (err) => {
+    // console.error('[FATAL] Uncaught Exception absorbed:', err.message);
+});
+
+process.on('unhandledRejection', (reason) => {
+    // console.error('[FATAL] Unhandled Rejection absorbed:', reason);
+});
+
 // Serve Static Files (Essential for Render deployment)
 app.use(express.static(PUBLIC_PATH));
 
