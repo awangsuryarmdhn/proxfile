@@ -51,33 +51,25 @@ class ScraperService {
                 return { number, exists: false, proxy: proxy || 'Direct', status: 'BLOCKED' };
             }
 
-            // ROBUST DETECTION LOGIC (Multi-Marker)
-            // 1. Generic "2 Billion" marketing text is ONLY on unregistered/generic pages.
-            const isGenericMarketingPage = html.includes('2 billion people') || 
-                                         html.includes('2 miliar orang') ||
-                                         html.includes('Messenger: More than');
+            // REFINED DETECTION LOGIC (The "Plus Sign" Heuristic)
+            // Valid profiles: "Chat on WhatsApp with +62 898..."
+            // Invalid: "Chat on WhatsApp with 62898..." (No + sign)
+            
+            // Marker 1: Visible text contains the formatted string with a +
+            const hasPlusFormatted = html.includes(`with +${cleanNum.slice(0, 2)}`) || 
+                                     html.includes(`with +`) && html.includes(cleanNum.slice(-4));
 
-            // 2. Business Account marker
+            // Marker 2: Specific Business Account label
             const isBusiness = html.includes('Business Account');
 
-            // 3. Formatted number check (Valid profiles have the number formatted with spaces/plus)
-            // For number 628980702259, it appears as "+62 898-0702-259"
-            const escapedNum = cleanNum.slice(-4); // Last 4 digits
-            const hasPhoneMarkers = html.includes('whatsapp://send/?phone=') || 
-                                   html.includes(`send/?phone=${cleanNum}`);
+            // Marker 3: App deep-link URL presence (though this can be generic)
+            const hasDeepLink = html.includes(`whatsapp://send/?phone=${cleanNum}`) ||
+                                html.includes(`wa.me/${cleanNum}`);
 
-            // FINAL VERDICT
-            // If it's the generic marketing page, it's a MISS.
-            // If it has specific markers or is a Business account, it's a HIT.
-            let exists = false;
-            if (isGenericMarketingPage) {
-                exists = false;
-            } else if (isBusiness || hasPhoneMarkers) {
-                exists = true;
-            } else if (html.length > 5000) {
-                // Large pages usually mean a profile with data
-                exists = true;
-            }
+            // VERDICT
+            // A number exists IF it has the '+' sign in the "Chat on WhatsApp with" section
+            // OR if it is explicitly marked as a Business Account.
+            const exists = hasPlusFormatted || isBusiness;
 
             return { 
                 number, 
