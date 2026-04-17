@@ -109,6 +109,17 @@ app.post('/api/appeal', async (req, res) => {
 });
 
 /**
+ * Telegram Config Check
+ */
+app.get('/api/config/telegram', (req, res) => {
+    const hasToken = !!process.env.TELEGRAM_BOT_TOKEN;
+    res.json({ 
+        configured: hasToken,
+        webhook_url: `https://${req.get('host')}/api/webhook/telegram`
+    });
+});
+
+/**
  * Telegram Webhook Endpoint
  * Triggers on every incoming message. Returns 200 immediately to acknowledge Telegram,
  * then processes commands asynchronously.

@@ -162,10 +162,7 @@
         .tag-err { color: var(--error); }
         .log-msg { color: #d4d4d8; word-break: break-all; }
         
-        /* Auto Appeal Modal */
-        #appealSection {
-            margin-top: 24px; padding-top: 20px; border-top: 1px dashed var(--border);
-        }
+        /* Input Utils */
         .input-group { margin-bottom: 12px; }
         .input-group label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
         .input-control {
@@ -234,7 +231,7 @@
             </button>
 
             <!-- Auto Appeal Mini-UI -->
-            <div id="appealSection">
+            <div id="appealSection" style="margin-top: 24px; padding-top: 20px; border-top: 1px dashed var(--border);">
                 <div class="panel-title" style="margin-bottom: 12px; border-bottom: none;">Appeals (Auto-Unban)</div>
                 <div class="input-group">
                     <input type="text" id="appealNum" class="input-control" placeholder="Target Number (e.g. 62812...)">
@@ -243,6 +240,18 @@
                     Send Appeal Ticket
                 </button>
                 <div id="appealStatus" style="font-size: 11px; margin-top: 8px; color: var(--text-muted);"></div>
+            </div>
+
+            <!-- Telegram Linker UI -->
+            <div id="telegramSection" style="margin-top: 24px; padding-top: 20px; border-top: 1px dashed var(--border);">
+                <div class="panel-title" style="margin-bottom: 12px; border-bottom: none;">Telegram System</div>
+                <div class="input-group">
+                    <label id="tgLabel" style="display: block; font-size: 11px; margin-bottom: 4px;">Status: Checking...</label>
+                    <input type="password" id="tgTokenInput" class="input-control" placeholder="Paste Token from BotFather">
+                </div>
+                <button class="btn btn-outline" id="linkTgBtn" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);">
+                    Link Bot to Server
+                </button>
             </div>
         </aside>
 
@@ -294,7 +303,7 @@
             // Auto scroll
             logBox.scrollTop = logBox.scrollHeight;
             // Memory limit
-            if (logBox.children.length > 100) logBox.firstElementChild.remove();
+            if (logBox.children.length > 200) logBox.firstElementChild.remove();
         }
 
         // File Parsing
@@ -331,7 +340,6 @@
             const startTime = Date.now();
             
             // Parallel Chunk Processing
-            // CPU choke is solved via Agent Caching. We can safely push 3 concurrent chunks.
             const MAX_CONCURRENT_CHUNKS = 3; 
             const CHUNK_SIZE = 50; 
             const chunks = [];
@@ -442,7 +450,7 @@
                 if (res.ok) {
                     statDiv.innerText = 'Appeal dispatched successfully.';
                     statDiv.style.color = 'var(--success)';
-                    addLog('SYS', `Auto-Appeal sent correctly to Meta Support for [${num}]`);
+                    addLog('SYS', `Auto-Appeal sent correctly for [${num}]`);
                 } else {
                     statDiv.innerText = `Error: ${data.message || data.error}`;
                     statDiv.style.color = 'var(--error)';
@@ -454,6 +462,52 @@
 
             appealBtn.disabled = false;
             setTimeout(() => statDiv.innerText = '', 5000);
+        };
+
+        // Telegram Linker Logic
+        const linkTgBtn = document.getElementById('linkTgBtn');
+        const tgTokenInput = document.getElementById('tgTokenInput');
+        const tgLabel = document.getElementById('tgLabel');
+
+        async function checkTgConfig() {
+            try {
+                const res = await fetch('/api/config/telegram');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.configured) {
+                    tgLabel.innerText = "Status: Token Loaded ✅";
+                    tgLabel.style.color = "var(--success)";
+                } else {
+                    tgLabel.innerText = "Status: Token Missing ❌";
+                    tgLabel.style.color = "var(--error)";
+                }
+            } catch (e) {}
+        }
+        checkTgConfig();
+
+        linkTgBtn.onclick = async () => {
+            const token = tgTokenInput.value.trim();
+            if (!token) {
+                alert("Please paste your token first!");
+                return;
+            }
+
+            linkTgBtn.disabled = true;
+            linkTgBtn.innerText = "Linking...";
+
+            try {
+                const webhookUrl = `${window.location.origin}/api/webhook/telegram`;
+                const setupUrl = `https://api.telegram.org/bot${token}/setWebhook?url=${webhookUrl}`;
+                
+                window.open(setupUrl, '_blank');
+                addLog('SYS', 'Telegram Webhook setup request dispatched.');
+                tgLabel.innerText = "Status: Pending Refresh";
+                tgLabel.style.color = "#38bdf8";
+            } catch (err) {
+                alert("Failed to link: " + err.message);
+            }
+            linkTgBtn.disabled = false;
+            linkTgBtn.innerText = "Link Bot to Server";
         };
 
         // Drag handlers
