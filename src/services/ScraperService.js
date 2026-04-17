@@ -57,7 +57,7 @@ class ScraperService {
             
             // Marker 1: Visible text contains the formatted string with a +
             const hasPlusFormatted = html.includes(`with +${cleanNum.slice(0, 2)}`) || 
-                                     html.includes(`with +`) && html.includes(cleanNum.slice(-4));
+                                     (html.includes(`with +`) && html.includes(cleanNum.slice(-4)));
 
             // Marker 2: Specific Business Account label
             const isBusiness = html.includes('Business Account');
@@ -88,6 +88,42 @@ class ScraperService {
                 error: error.message 
             };
         }
+    }
+    /**
+     * Checks a phone number with automatic retry on proxy failure.
+     * Tries up to maxRetries different proxies, then falls back to a direct connection.
+     * @param {string} number - The phone number to check
+     * @param {object} proxyManager - ProxyManager instance
+     * @param {number} maxRetries - Max proxy attempts before direct fallback
+     * @param {number} timeout - Request timeout per attempt
+     * @returns {Promise<{number: string, exists: boolean, proxy: string, status: string}>}
+     */
+    static async checkNumberWithRetry(number, proxyManager, maxRetries = 3, timeout = 9000) {
+        // If no proxy pool is available, go direct immediately
+        if (!proxyManager || proxyManager.count === 0) {
+            return ScraperService.checkNumber(number, null, timeout);
+        }
+
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            const proxy = proxyManager.getRandomProxy();
+
+            // Pool may have drained during previous iterations
+            if (!proxy) break;
+
+            const result = await ScraperService.checkNumber(number, proxy, timeout);
+
+            if (result.status === 'SUCCESS') {
+                return result;
+            }
+
+            // Bad proxy — evict it and try the next one
+            if (result.status === 'BLOCKED' || result.status === 'ERROR') {
+                proxyManager.removeProxy(proxy);
+            }
+        }
+
+        // Final fallback: direct connection (no proxy)
+        return ScraperService.checkNumber(number, null, timeout);
     }
 }
 
