@@ -99,34 +99,31 @@ class ScraperService {
      * @returns {Promise<{number: string, exists: boolean, proxy: string, status: string}>}
      */
     static async checkNumberWithRetry(number, proxyManager, maxRetries = 3, timeout = 9000) {
-        let lastResult = null;
+        // If no proxy pool is available, go direct immediately
+        if (!proxyManager || proxyManager.count === 0) {
+            return ScraperService.checkNumber(number, null, timeout);
+        }
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
-            const proxy = proxyManager ? proxyManager.getRandomProxy() : null;
+            const proxy = proxyManager.getRandomProxy();
+
+            // Pool may have drained during previous iterations
+            if (!proxy) break;
 
             const result = await ScraperService.checkNumber(number, proxy, timeout);
-            lastResult = result;
 
             if (result.status === 'SUCCESS') {
                 return result;
             }
 
             // Bad proxy — evict it and try the next one
-            if (proxy && (result.status === 'BLOCKED' || result.status === 'ERROR')) {
+            if (result.status === 'BLOCKED' || result.status === 'ERROR') {
                 proxyManager.removeProxy(proxy);
             }
-
-            // If there was no proxy in the first place, no point retrying
-            if (!proxy) break;
         }
 
         // Final fallback: direct connection (no proxy)
-        if (lastResult && lastResult.status !== 'SUCCESS') {
-            const directResult = await ScraperService.checkNumber(number, null, timeout);
-            return directResult;
-        }
-
-        return lastResult;
+        return ScraperService.checkNumber(number, null, timeout);
     }
 }
 

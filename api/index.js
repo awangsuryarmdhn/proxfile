@@ -13,6 +13,7 @@ const PUBLIC_PATH = path.join(__dirname, '..', 'public');
 
 import TelegramService from '../src/services/TelegramService.js';
 
+const PROXY_RETRIES = 3;
 const app = express();
 
 app.use(cors());
@@ -64,7 +65,7 @@ app.post('/api/scan', async (req, res) => {
             numbers.map(num =>
                 limit(async () => {
                     try {
-                        const result = await ScraperService.checkNumberWithRetry(num, ProxyManager, 3, timeout);
+                        const result = await ScraperService.checkNumberWithRetry(num, ProxyManager, PROXY_RETRIES, timeout);
                         return result;
                     } catch (e) {
                         return { number: num, exists: false, status: 'FATAL_ERROR', error: e.message };
@@ -148,7 +149,7 @@ app.post('/api/webhook/telegram', (req, res) => {
             }
             
             // Reduced timeout for snappier bot response; retry up to 3 proxies before direct fallback
-            const result = await ScraperService.checkNumberWithRetry(num, ProxyManager, 3, 4500);
+            const result = await ScraperService.checkNumberWithRetry(num, ProxyManager, PROXY_RETRIES, 4500);
 
             if (result.exists) {
                 await TelegramService.sendMessage(msg.chatId, `✅ *HIT!* \n${num} is registered on WhatsApp.`);
