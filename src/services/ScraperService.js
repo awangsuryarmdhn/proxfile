@@ -57,7 +57,7 @@ class ScraperService {
             
             // Marker 1: Visible text contains the formatted string with a +
             const hasPlusFormatted = html.includes(`with +${cleanNum.slice(0, 2)}`) || 
-                                     html.includes(`with +`) && html.includes(cleanNum.slice(-4));
+                                     (html.includes(`with +`) && html.includes(cleanNum.slice(-4)));
 
             // Marker 2: Specific Business Account label
             const isBusiness = html.includes('Business Account');
@@ -88,6 +88,45 @@ class ScraperService {
                 error: error.message 
             };
         }
+    }
+    /**
+     * Checks a phone number with automatic retry on proxy failure.
+     * Tries up to maxRetries different proxies, then falls back to a direct connection.
+     * @param {string} number - The phone number to check
+     * @param {object} proxyManager - ProxyManager instance
+     * @param {number} maxRetries - Max proxy attempts before direct fallback
+     * @param {number} timeout - Request timeout per attempt
+     * @returns {Promise<{number: string, exists: boolean, proxy: string, status: string}>}
+     */
+    static async checkNumberWithRetry(number, proxyManager, maxRetries = 3, timeout = 9000) {
+        let lastResult = null;
+
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            const proxy = proxyManager ? proxyManager.getRandomProxy() : null;
+
+            const result = await ScraperService.checkNumber(number, proxy, timeout);
+            lastResult = result;
+
+            if (result.status === 'SUCCESS') {
+                return result;
+            }
+
+            // Bad proxy — evict it and try the next one
+            if (proxy && (result.status === 'BLOCKED' || result.status === 'ERROR')) {
+                proxyManager.removeProxy(proxy);
+            }
+
+            // If there was no proxy in the first place, no point retrying
+            if (!proxy) break;
+        }
+
+        // Final fallback: direct connection (no proxy)
+        if (lastResult && lastResult.status !== 'SUCCESS') {
+            const directResult = await ScraperService.checkNumber(number, null, timeout);
+            return directResult;
+        }
+
+        return lastResult;
     }
 }
 
