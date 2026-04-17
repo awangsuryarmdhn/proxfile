@@ -330,47 +330,60 @@
             let hits = 0;
             const startTime = Date.now();
             
-            // Render Free Tier Limit Fix:
-            // Process STRICTLY 1 Chunk at a time to prevent CPU choke (502 Bad Gateway)
+            // Parallel Chunk Processing
+            // CPU choke is solved via Agent Caching. We can safely push 3 concurrent chunks.
+            const MAX_CONCURRENT_CHUNKS = 3; 
             const CHUNK_SIZE = 50; 
             const chunks = [];
             for (let i = 0; i < numbers.length; i += CHUNK_SIZE) {
                 chunks.push(numbers.slice(i, i + CHUNK_SIZE));
             }
 
-            addLog('SYS', `Execution mapped to ${chunks.length} task blocks.`);
+            addLog('SYS', `Execution mapped. Parallel threads: ${MAX_CONCURRENT_CHUNKS}`);
 
-            for (let i = 0; i < chunks.length; i++) {
-                if (!isRunning) break;
-                
-                const chunk = chunks[i];
-                try {
-                    const resp = await fetch('/api/scan', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ numbers: chunk, concurrency: 10, timeout: 7000 })
-                    });
-                    
-                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                    
-                    const data = await resp.json();
-                    data.results.forEach(r => {
-                        results.push(r);
-                        if (r.exists) {
-                            hits++;
-                            addLog('HIT', `Validated: ${r.number}`);
+            let currentIndex = 0;
+
+            const processChunkPool = async () => {
+                while (currentIndex < chunks.length && isRunning) {
+                    const chunkIndex = currentIndex++;
+                    const chunk = chunks[chunkIndex];
+                    try {
+                        const resp = await fetch('/api/scan', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ numbers: chunk, concurrency: 10, timeout: 7000 })
+                        });
+                        
+                        if (!resp.ok) {
+                            addLog('ERR', `Block ${chunkIndex+1} failed (HTTP ${resp.status})`);
+                            processed += chunk.length;
+                            continue;
                         }
-                    });
-                    
-                    processed += chunk.length;
-                    updateUI(processed, hits, startTime);
-                } catch (err) {
-                    addLog('ERR', `Block ${i+1} failed (${err.message}). Queueing for manual review.`);
-                    // Prevent total crash
-                    processed += chunk.length; 
-                    updateUI(processed, hits, startTime);
+                        
+                        const data = await resp.json();
+                        data.results.forEach(r => {
+                            results.push(r);
+                            if (r.exists) {
+                                hits++;
+                                addLog('HIT', `Validated: ${r.number}`);
+                            }
+                        });
+                        
+                        processed += chunk.length;
+                        updateUI(processed, hits, startTime);
+                    } catch (err) {
+                        addLog('ERR', `Block ${chunkIndex+1} network drop. Skipping.`);
+                        processed += chunk.length; 
+                        updateUI(processed, hits, startTime);
+                    }
                 }
+            };
+
+            const workers = [];
+            for (let w = 0; w < MAX_CONCURRENT_CHUNKS; w++) {
+                workers.push(processChunkPool());
             }
+            await Promise.all(workers);
 
             addLog('SYS', `Routine terminated. Yield: ${hits} elements.`);
             document.getElementById('globalStatus').style.backgroundColor = 'var(--success)';

@@ -65,9 +65,17 @@ app.post('/api/scan', async (req, res) => {
                 limit(async () => {
                     try {
                         const proxy = ProxyManager.getRandomProxy();
-                        return await ScraperService.checkNumber(num, proxy, timeout);
+                        const result = await ScraperService.checkNumber(num, proxy, timeout);
+                        
+                        // Proxy "Punish & Ban" System
+                        // If proxy times out, resets, or is blocked by cloudflare, kick it immediately.
+                        if (proxy && (result.status === 'ERROR' || result.status === 'BLOCKED')) {
+                            ProxyManager.removeProxy(proxy);
+                        }
+                        
+                        return result;
                     } catch (e) {
-                        return { number: num, exists: false, status: 'ERROR', error: e.message };
+                        return { number: num, exists: false, status: 'FATAL_ERROR', error: e.message };
                     }
                 })
             )
