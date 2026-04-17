@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: nitro-wa-scanner
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CONCURRENCY
+        value: "30"
+      - key: TIMEOUT
+        value: "7000"
+      - key: SMTP_SERVICE
+        value: outlook # Change to your preferred provider (e.g. gmail) or leave empty for custom SMTP
+      - key: SMTP_USER
+        sync: false # Set this in the Render Dashboard
+      - key: SMTP_PASS
+        sync: false # Set this in the Render Dashboard
