@@ -52,12 +52,13 @@ class ScraperService {
             }
 
             // REFINED DETECTION LOGIC (The "Plus Sign" Heuristic)
-            // Valid profiles: "Chat on WhatsApp with +62 898..."
-            // Invalid: "Chat on WhatsApp with 62898..." (No + sign)
+            // Valid profiles: "Chat on WhatsApp with +62 898 7634 7255"
+            // Invalid: no "with +" section, or number-specific digits absent
             
-            // Marker 1: Visible text contains the formatted string with a +
-            const hasPlusFormatted = html.includes(`with +${cleanNum.slice(0, 2)}`) || 
-                                     (html.includes(`with +`) && html.includes(cleanNum.slice(-4)));
+            // Marker 1: "with +" appears AND the last 6 digits of the number are present.
+            // Using 6 digits (vs 2) prevents false positives from country-code-only matches
+            // (e.g. "with +62" appearing on error pages for unregistered +62 numbers).
+            const hasPlusFormatted = html.includes(`with +`) && html.includes(cleanNum.slice(-6));
 
             // Marker 2: Specific Business Account label
             const isBusiness = html.includes('Business Account');
