@@ -36,11 +36,12 @@ class ScraperService {
                 httpsAgent: agent,
                 timeout,
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1',
+                    'Accept-Language': 'en-US,en;q=0.9',
                 }
             });
 
-            // BLOCKER DETECTION: Differentiate between "Not Found" and "Blocked by Cloudflare"
+            // BLOCKER DETECTION
             const isBlocked = html.includes('challenge-running') || 
                               html.includes('Checking your browser') || 
                               html.includes('Attention Required!') ||
@@ -50,16 +51,40 @@ class ScraperService {
                 return { number, exists: false, proxy: proxy || 'Direct', status: 'BLOCKED' };
             }
 
-            // ROBUST DETECTION LOGIC (Language Agnostic)
-            const exists = /whatsapp:\/\/send\/?\?phone=/i.test(html) || 
-                           /action="whatsapp:\/\/send/i.test(html) ||
-                           html.includes(`send/?phone=${cleanNum}`);
+            // ROBUST DETECTION LOGIC (Multi-Marker)
+            // 1. Generic "2 Billion" marketing text is ONLY on unregistered/generic pages.
+            const isGenericMarketingPage = html.includes('2 billion people') || 
+                                         html.includes('2 miliar orang') ||
+                                         html.includes('Messenger: More than');
+
+            // 2. Business Account marker
+            const isBusiness = html.includes('Business Account');
+
+            // 3. Formatted number check (Valid profiles have the number formatted with spaces/plus)
+            // For number 628980702259, it appears as "+62 898-0702-259"
+            const escapedNum = cleanNum.slice(-4); // Last 4 digits
+            const hasPhoneMarkers = html.includes('whatsapp://send/?phone=') || 
+                                   html.includes(`send/?phone=${cleanNum}`);
+
+            // FINAL VERDICT
+            // If it's the generic marketing page, it's a MISS.
+            // If it has specific markers or is a Business account, it's a HIT.
+            let exists = false;
+            if (isGenericMarketingPage) {
+                exists = false;
+            } else if (isBusiness || hasPhoneMarkers) {
+                exists = true;
+            } else if (html.length > 5000) {
+                // Large pages usually mean a profile with data
+                exists = true;
+            }
 
             return { 
                 number, 
                 exists: !!exists, 
                 proxy: proxy || 'Direct', 
-                status: 'SUCCESS' 
+                status: 'SUCCESS',
+                type: isBusiness ? 'Business' : 'Regular'
             };
 
         } catch (error) {
