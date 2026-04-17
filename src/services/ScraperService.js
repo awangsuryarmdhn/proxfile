@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
+const agentCache = new Map();
+
 /**
  * ScraperService - A simplified, maintainable engine for checking WA status.
  * Focuses on high-accuracy, language-agnostic detection.
@@ -16,7 +18,18 @@ class ScraperService {
     static async checkNumber(number, proxy = null, timeout = 9000) {
         const cleanNum = number.replace(/\D/g, '');
         const url = `https://api.whatsapp.com/send/?phone=${cleanNum}&text&type=phone_number&app_absent=0`;
-        const agent = proxy ? new HttpsProxyAgent(proxy.startsWith('http') ? proxy : `http://${proxy}`) : null;
+        
+        let agent = null;
+        if (proxy) {
+            if (!agentCache.has(proxy)) {
+                // Keep the cache small, prevent memory leaks if proxies change often
+                if (agentCache.size > 200) agentCache.clear();
+                
+                const proxyUrl = proxy.startsWith('http') ? proxy : `http://${proxy}`;
+                agentCache.set(proxy, new HttpsProxyAgent(proxyUrl));
+            }
+            agent = agentCache.get(proxy);
+        }
 
         try {
             const { data: html } = await axios.get(url, {
