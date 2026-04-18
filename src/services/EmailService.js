@@ -12,7 +12,20 @@ class EmailService {
         let config;
         const service = (process.env.SMTP_SERVICE || '').toLowerCase();
 
-        if (service === 'outlook' || service === 'hotmail') {
+        if (service === 'gmail') {
+            // Gmail accounts
+            // Requires an App Password (not your regular Google password).
+            // Generate one at myaccount.google.com → Security → App passwords.
+            config = {
+                host: 'smtp.gmail.com',
+                port: 587,
+                secure: false,
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS
+                }
+            };
+        } else if (service === 'outlook' || service === 'hotmail') {
             // Personal Outlook.com / Hotmail accounts
             // Requires an App Password when two-step verification is enabled.
             config = {
