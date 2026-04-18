@@ -11,23 +11,32 @@ class ProxyManager {
     }
 
     async refreshPool() {
+        if (this.isRefreshing) return this.proxies.length;
+        this.isRefreshing = true;
+
         try {
             const fetchPromises = this.sources.map(url => 
-                axios.get(url, { timeout: 4000 }).catch(() => null)
+                axios.get(url, { timeout: 5000 }).catch(() => null)
             );
 
             const results = await Promise.all(fetchPromises);
             const rawProxies = results
                 .filter(Boolean)
-                .map(res => res.data.split(/\r?\n/))
+                .map(res => {
+                    if (typeof res.data === 'string') return res.data.split(/\r?\n/);
+                    return [];
+                })
                 .flat()
                 .filter(p => p.includes(':') && /^\d+\.\d+\.\d+\.\d+:\d+$/.test(p.trim()));
 
-            this.proxies = [...new Set(rawProxies)];
+            if (rawProxies.length > 0) {
+                this.proxies = [...new Set(rawProxies)];
+            }
             return this.proxies.length;
         } catch (error) {
-            console.error('Failed to fetch proxies:', error.message);
-            return 0;
+            return this.proxies.length;
+        } finally {
+            this.isRefreshing = false;
         }
     }
 

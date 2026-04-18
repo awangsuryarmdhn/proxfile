@@ -342,9 +342,9 @@
             let hits = 0;
             const startTime = Date.now();
             
-            // Hyper-Speed Configuration (Target: 12k in <10m)
-            const MAX_CONCURRENT_CHUNKS = 10; 
-            const CHUNK_SIZE = 30; 
+            // Liquid-Fast Progress Configuration
+            const MAX_CONCURRENT_CHUNKS = 40; 
+            const CHUNK_SIZE = 5; 
             const chunks = [];
             for (let i = 0; i < numbers.length; i += CHUNK_SIZE) {
                 chunks.push(numbers.slice(i, i + CHUNK_SIZE));

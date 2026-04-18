@@ -197,19 +197,23 @@ app.get('*', (req, res) => {
 });
 
 // Port Handling (Render provides PORT env)
+// Boot Sequence: Load System Status and Proxies immediately
+(async () => {
+    console.log('--- 🚀 NITRO ENGINE BOOTING ---');
+    // Pre-warm proxies immediately
+    ProxyManager.refreshPool().then(count => {
+        console.log(`🌐 Initial Proxy Pool: ${count} addresses loaded.`);
+    }).catch(err => console.error('Proxy pre-warm error:', err.message));
+    
+    // Auto-refresh pool every 10 minutes
+    setInterval(() => {
+        ProxyManager.refreshPool();
+    }, 10 * 60 * 1000);
+})();
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-    console.log('-----------------------------------');
-    console.log(`🚀 NITRO WEB ENGINE V3 ACTIVE`);
-    console.log(`📡 Listening on: http://localhost:${PORT}`);
-    console.log(`📂 Serving Static: ${PUBLIC_PATH}`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log('-----------------------------------');
-
-    // Pre-warm the proxy pool so the first scan request doesn't have to wait
-    ProxyManager.refreshPool()
-        .then(count => console.log(`🌐 Proxy pool ready: ${count} proxies loaded`))
-        .catch(err => console.error('Proxy pool pre-warm failed:', err.message));
+    console.log(`📡 Server Active: http://localhost:${PORT}`);
 });
 
 export default app;
