@@ -191,6 +191,18 @@
         <aside class="panel">
             <div class="panel-title">Batch Configuration</div>
             
+            <div class="input-group" style="margin-bottom: 16px;">
+                <label style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:6px;">Check Method</label>
+                <div style="display:flex; gap:8px;">
+                    <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;">
+                        <input type="radio" name="checkMethod" value="whatsapp" checked> WhatsApp
+                    </label>
+                    <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;">
+                        <input type="radio" name="checkMethod" value="messenger"> Messenger
+                    </label>
+                </div>
+            </div>
+
             <label class="drop-zone" id="dropZone">
                 <input type="file" id="fileInput" accept=".txt">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -327,6 +339,9 @@
         startBtn.onclick = async () => {
             if (numbers.length === 0) return;
             
+            const checkMethod = document.querySelector('input[name="checkMethod"]:checked')?.value || 'whatsapp';
+            const methodLabel = checkMethod === 'messenger' ? 'Messenger' : 'WhatsApp';
+
             isRunning = true;
             results = [];
             startBtn.disabled = true;
@@ -347,7 +362,7 @@
                 chunks.push(numbers.slice(i, i + CHUNK_SIZE));
             }
 
-            addLog('SYS', `Execution mapped. Parallel threads: ${MAX_CONCURRENT_CHUNKS}`);
+            addLog('SYS', `Execution mapped via ${methodLabel}. Parallel threads: ${MAX_CONCURRENT_CHUNKS}`);
 
             let currentIndex = 0;
 
@@ -359,7 +374,7 @@
                         const resp = await fetch('/api/scan', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ numbers: chunk, concurrency: 10, timeout: 7000 })
+                            body: JSON.stringify({ numbers: chunk, concurrency: 10, timeout: 7000, method: checkMethod })
                         });
                         
                         if (!resp.ok) {
@@ -373,7 +388,7 @@
                             results.push(r);
                             if (r.exists) {
                                 hits++;
-                                addLog('HIT', `Validated: ${r.number}`);
+                                addLog('HIT', `Validated: ${r.number} [${methodLabel}]`);
                             }
                         });
                         

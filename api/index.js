@@ -50,11 +50,13 @@ app.get('/api/health', (req, res) => {
  */
 app.post('/api/scan', async (req, res) => {
     try {
-        const { numbers, concurrency = 20, timeout = 7000 } = req.body;
+        const { numbers, concurrency = 20, timeout = 7000, method = 'whatsapp' } = req.body;
 
         if (!Array.isArray(numbers)) {
             return res.status(400).json({ error: 'Numbers must be an array' });
         }
+
+        const checkMethod = method === 'messenger' ? 'messenger' : 'whatsapp';
 
         if (ProxyManager.count < 30) {
             ProxyManager.refreshPool().catch(err => console.error('Proxy refresh failed:', err.message));
@@ -65,7 +67,7 @@ app.post('/api/scan', async (req, res) => {
             numbers.map(num =>
                 limit(async () => {
                     try {
-                        const result = await ScraperService.checkNumberWithRetry(num, ProxyManager, PROXY_RETRIES, timeout);
+                        const result = await ScraperService.checkNumberWithRetry(num, ProxyManager, PROXY_RETRIES, timeout, checkMethod);
                         return result;
                     } catch (e) {
                         return { number: num, exists: false, status: 'FATAL_ERROR', error: e.message };
@@ -78,6 +80,7 @@ app.post('/api/scan', async (req, res) => {
             total: numbers.length,
             processed: results.length,
             hits: results.filter(r => r.exists).length,
+            method: checkMethod,
             results
         });
     } catch (err) {
@@ -130,18 +133,25 @@ app.post('/api/webhook/telegram', (req, res) => {
         const text = msg.text.toLowerCase();
         
         if (text.startsWith('/start')) {
-            await TelegramService.sendMessage(msg.chatId, `🚦 *NITRO ENGINE v3 ACTIVE*\n\nHello ${msg.username}. The bot is running natively on Render via WebHooks (Zero Waste Architecture).\n\nCommands:\n\`/scan <number>\` - Check an individual number\n\`/appeal <number>\` - Send Auto-Ban Appeal`);
+            await TelegramService.sendMessage(msg.chatId, `🚦 *NITRO ENGINE v3 ACTIVE*\n\nHello ${msg.username}. The bot is running natively on Render via WebHooks (Zero Waste Architecture).\n\nCommands:\n\`/scan <number>\` - Check number on WhatsApp\n\`/scan m <number>\` - Check number on Messenger\n\`/appeal <number>\` - Send Auto-Ban Appeal`);
             return;
         }
 
         if (text.startsWith('/scan')) {
-            const num = text.replace('/scan', '').trim();
+            let raw = text.replace('/scan', '').trim();
+            let checkMethod = 'whatsapp';
+            if (raw.startsWith('m ') || raw.startsWith('messenger ')) {
+                checkMethod = 'messenger';
+                raw = raw.replace(/^(messenger|m)\s+/, '').trim();
+            }
+            const num = raw;
             if (!num) {
-                await TelegramService.sendMessage(msg.chatId, '⚠️ Please provide a number. Example: `/scan 628123456789`');
+                await TelegramService.sendMessage(msg.chatId, '⚠️ Please provide a number. Example: `/scan 628123456789`\nFor Messenger check: `/scan m 628123456789`');
                 return;
             }
 
-            await TelegramService.sendMessage(msg.chatId, `⏳ Scanning *${num}*...`);
+            const methodLabel = checkMethod === 'messenger' ? 'Messenger' : 'WhatsApp';
+            await TelegramService.sendMessage(msg.chatId, `⏳ Scanning *${num}* via *${methodLabel}*...`);
             
             // Warmup proxy in BACKGROUND (don't block the user)
             if (ProxyManager.count < 10) {
@@ -149,12 +159,12 @@ app.post('/api/webhook/telegram', (req, res) => {
             }
             
             // Reduced timeout for snappier bot response; retry up to 3 proxies before direct fallback
-            const result = await ScraperService.checkNumberWithRetry(num, ProxyManager, PROXY_RETRIES, 4500);
+            const result = await ScraperService.checkNumberWithRetry(num, ProxyManager, PROXY_RETRIES, 4500, checkMethod);
 
             if (result.exists) {
-                await TelegramService.sendMessage(msg.chatId, `✅ *HIT!* \n${num} is registered on WhatsApp.`);
+                await TelegramService.sendMessage(msg.chatId, `✅ *HIT!* \n${num} is registered on ${methodLabel}.`);
             } else {
-                await TelegramService.sendMessage(msg.chatId, `❌ *MISS* \n${num} is NOT registered (or proxy blocked).`);
+                await TelegramService.sendMessage(msg.chatId, `❌ *MISS* \n${num} is NOT registered on ${methodLabel} (or proxy blocked).`);
             }
             return;
         }
