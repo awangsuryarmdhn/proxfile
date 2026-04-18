@@ -195,6 +195,11 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`📂 Serving Static: ${PUBLIC_PATH}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log('-----------------------------------');
+
+    // Pre-warm the proxy pool so the first scan request doesn't have to wait
+    ProxyManager.refreshPool()
+        .then(count => console.log(`🌐 Proxy pool ready: ${count} proxies loaded`))
+        .catch(err => console.error('Proxy pool pre-warm failed:', err.message));
 });
 
 export default app;
