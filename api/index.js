@@ -103,27 +103,21 @@ app.post('/api/appeal', async (req, res) => {
 
 /**
  * Telegram Webhook Endpoint
- * Triggers on every incoming message. Returns 200 immediately to acknowledge Telegram,
- * then processes commands asynchronously.
- */
 app.post('/api/webhook/telegram', (req, res) => {
-    // 1. Immediately acknowledge Telegram to prevent them retrying the webhook
-    res.sendStatus(200);
+    const isServerless = !!process.env.VERCEL;
 
-    // 2. Parse Message
     const msg = TelegramService.parseMessage(req.body);
-    if (!msg) return;
+    if (!msg) return res.sendStatus(200);
 
-    // 3. Process Command asynchronously
     (async () => {
         const text = msg.text.toLowerCase();
         
         if (text.startsWith('/start')) {
-            await TelegramService.sendMessage(msg.chatId, `🚦 *NITRO ENGINE v3 ACTIVE*\n\nHello ${msg.username}. The bot is running natively on Render via WebHooks (Zero Waste Architecture).\n\nCommands:\n\`/scan <number>\` - Check an individual number\n\`/appeal <number>\` - Send Auto-Ban Appeal`);
+            await TelegramService.sendMessage(msg.chatId, `🚦 *NITRO ENGINE v3 ACTIVE*\n\nHello ${msg.username}. The bot is running natively on ${process.env.VERCEL ? 'Vercel' : 'Render'} via WebHooks (Zero Waste Architecture).\n\nCommands:\n\`/scan <number>\` - Check an individual number\n\`/appeal <number>\` - Send Auto-Ban Appeal`);
             return;
         }
 
-            // Support bulk scanning if multiple numbers or newlines are sent
+        if (text.startsWith('/scan')) {
             const numbers = text.replace('/scan', '').trim().split(/[\s,]+/).filter(n => n.length > 5);
             
             if (numbers.length === 0) {
@@ -142,7 +136,6 @@ app.post('/api/webhook/telegram', (req, res) => {
                     await TelegramService.sendMessage(msg.chatId, `❌ *MISS*\n${num} is NOT registered.`);
                 }
             } else {
-                // Bulk Scanning for Telegram (Parallel)
                 const limit = Math.min(numbers.length, 50);
                 await TelegramService.sendMessage(msg.chatId, `🚀 *Turbo-Scanning ${numbers.length} numbers...*`);
                 
@@ -156,6 +149,7 @@ app.post('/api/webhook/telegram', (req, res) => {
                 await TelegramService.sendMessage(msg.chatId, `📊 *SCAN REPORT*\nTotal: ${numbers.length}\nHits: ${hits.length}\n\n${report || 'No hits found.'}`);
             }
             return;
+        }
 
         if (text.startsWith('/appeal')) {
             const num = text.replace('/appeal', '').trim();
@@ -174,7 +168,12 @@ app.post('/api/webhook/telegram', (req, res) => {
             }
             return;
         }
-    })().catch(err => console.error('[Telegram Webhook Error]', err.message));
+    })().then(() => {
+        if (!res.headersSent) res.sendStatus(200);
+    }).catch(err => {
+        console.error('[Telegram Webhook Error]', err.message);
+        if (!res.headersSent) res.sendStatus(200);
+    });
 });
 
 /**
@@ -206,10 +205,14 @@ app.get('*', (req, res) => {
         console.log(`🌐 Initial Proxy Pool: ${count} addresses loaded.`);
     }).catch(err => console.error('Proxy pre-warm error:', err.message));
     
-    // Auto-refresh pool every 10 minutes
-    setInterval(() => {
-        ProxyManager.refreshPool();
-    }, 10 * 60 * 1000);
+    // Boot Sequence: Load System Status and Proxies immediately
+    // Only set intervals if not on Serverless
+    if (!process.env.VERCEL) {
+        // Auto-refresh pool every 10 minutes on persistent servers (Render)
+        setInterval(() => {
+            ProxyManager.refreshPool();
+        }, 10 * 60 * 1000);
+    }
 })();
 
 const PORT = process.env.PORT || 3000;

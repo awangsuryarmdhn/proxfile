@@ -245,7 +245,7 @@ class ScraperService {
         }
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
-            const proxy = proxyManager.getRandomProxy();
+            const proxy = await proxyManager.getRandomProxy();
             if (!proxy) break;
 
             const result = await ScraperService.checkNumber(number, proxy, timeout);

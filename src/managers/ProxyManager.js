@@ -40,7 +40,10 @@ class ProxyManager {
         }
     }
 
-    getRandomProxy() {
+    async getRandomProxy() {
+        if (this.proxies.length === 0) {
+            await this.refreshPool();
+        }
         if (this.proxies.length === 0) return null;
         return this.proxies[Math.floor(Math.random() * this.proxies.length)];
     }
