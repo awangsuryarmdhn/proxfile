@@ -102,17 +102,6 @@ app.post('/api/appeal', async (req, res) => {
 });
 
 /**
- * Telegram Config Check
- */
-app.get('/api/config/telegram', (req, res) => {
-    const hasToken = !!process.env.TELEGRAM_BOT_TOKEN;
-    res.json({ 
-        configured: hasToken,
-        webhook_url: `https://${req.get('host')}/api/webhook/telegram`
-    });
-});
-
-/**
  * Telegram Webhook Endpoint
  * Triggers on every incoming message. Returns 200 immediately to acknowledge Telegram,
  * then processes commands asynchronously.
@@ -189,8 +178,20 @@ app.post('/api/webhook/telegram', (req, res) => {
 });
 
 /**
- * SPA Routing: Direct all non-API requests to index.html
+ * System Status API
  */
+app.get('/api/status', async (req, res) => {
+    res.json({
+        proxies: ProxyManager.count,
+        telegram: {
+            active: !!process.env.TELEGRAM_BOT_TOKEN,
+            username: 'NitroBot' // We could fetch this from getMe if needed
+        },
+        email: {
+            active: !!process.env.SMTP_USER && !!process.env.SMTP_PASS
+        }
+    });
+});
 app.get('*', (req, res) => {
     res.sendFile(path.join(PUBLIC_PATH, 'index.html'));
 });

@@ -243,15 +243,15 @@
                 <div id="appealStatus" style="font-size: 11px; margin-top: 8px; color: var(--text-muted);"></div>
             </div>
 
-            <!-- Telegram Linker UI -->
+            <!-- Telegram System Status -->
             <div id="telegramSection" style="margin-top: 24px; padding-top: 20px; border-top: 1px dashed var(--border);">
-                <div class="panel-title" style="margin-bottom: 12px; border-bottom: none;">Telegram System</div>
-                <div class="input-group">
-                    <label id="tgLabel" style="display: block; font-size: 11px; margin-bottom: 4px;">Status: Checking...</label>
-                    <input type="password" id="tgTokenInput" class="input-control" placeholder="Paste Token from BotFather">
+                <div class="panel-title" style="margin-bottom: 12px; border-bottom: none;">Telegram Remote Scan</div>
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                    <div id="tgPulse" class="status-dot" style="background: #52525b; width: 8px; height: 8px;"></div>
+                    <span id="tgStatusText" style="font-size: 13px; color: var(--text-main);">Bot Offline</span>
                 </div>
-                <button class="btn btn-outline" id="linkTgBtn" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);">
-                    Link Bot to Server
+                <button class="btn btn-outline" id="launchTgBtn" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.3); display: none;">
+                    Open Bot in Telegram
                 </button>
             </div>
         </aside>
@@ -479,51 +479,49 @@
             setTimeout(() => statDiv.innerText = '', 5000);
         };
 
-        // Telegram Linker Logic
-        const linkTgBtn = document.getElementById('linkTgBtn');
-        const tgTokenInput = document.getElementById('tgTokenInput');
-        const tgLabel = document.getElementById('tgLabel');
+        // Global UI Selectors
+        const tgPulse = document.getElementById('tgPulse');
+        const tgStatusText = document.getElementById('tgStatusText');
+        const launchTgBtn = document.getElementById('launchTgBtn');
 
-        async function checkTgConfig() {
+        // System Status Polling
+        async function checkSystemStatus() {
             try {
-                const res = await fetch('/api/config/telegram');
-                if (!res.ok) return;
-                const data = await res.json();
-                if (data.configured) {
-                    tgLabel.innerText = "Status: Token Loaded ✅";
-                    tgLabel.style.color = "var(--success)";
-                } else {
-                    tgLabel.innerText = "Status: Token Missing ❌";
-                    tgLabel.style.color = "var(--error)";
-                }
-            } catch (e) {}
-        }
-        checkTgConfig();
-
-        linkTgBtn.onclick = async () => {
-            const token = tgTokenInput.value.trim();
-            if (!token) {
-                alert("Please paste your token first!");
-                return;
-            }
-
-            linkTgBtn.disabled = true;
-            linkTgBtn.innerText = "Linking...";
-
-            try {
-                const webhookUrl = `${window.location.origin}/api/webhook/telegram`;
-                const setupUrl = `https://api.telegram.org/bot${token}/setWebhook?url=${webhookUrl}`;
+                const resp = await fetch('/api/status');
+                const data = await resp.json();
                 
-                window.open(setupUrl, '_blank');
-                addLog('SYS', 'Telegram Webhook setup request dispatched.');
-                tgLabel.innerText = "Status: Pending Refresh";
-                tgLabel.style.color = "#38bdf8";
+                // Update Global Status
+                globalStatus.style.background = 'var(--success)';
+                
+                // Update Telegram Status
+                if (data.telegram && data.telegram.active) {
+                    tgPulse.style.background = 'var(--success)';
+                    tgStatusText.innerText = 'Bot Active (Remote Ready)';
+                    launchTgBtn.style.display = 'block';
+                    launchTgBtn.onclick = () => window.open(`https://t.me/prox_wa_bot`, '_blank'); 
+                } else {
+                    tgPulse.style.background = 'var(--error)';
+                    tgStatusText.innerText = 'Bot Inactive (Check .env)';
+                    launchTgBtn.style.display = 'none';
+                }
+
+                // Update Appeal UI based on Email Status
+                const appealStatusDiv = document.getElementById('appealStatus');
+                if (!data.email || !data.email.active) {
+                    appealBtn.disabled = true;
+                    appealStatusDiv.innerText = 'Setup SMTP in .env to appeal';
+                } else {
+                    appealBtn.disabled = false;
+                }
+
             } catch (err) {
-                alert("Failed to link: " + err.message);
+                globalStatus.style.background = 'var(--error)';
             }
-            linkTgBtn.disabled = false;
-            linkTgBtn.innerText = "Link Bot to Server";
-        };
+        }
+
+        // Initial check and poll
+        checkSystemStatus();
+        setInterval(checkSystemStatus, 30000);
 
         // Drag handlers
         const dropZone = document.getElementById('dropZone');
