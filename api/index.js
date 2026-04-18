@@ -105,69 +105,80 @@ app.post('/api/appeal', async (req, res) => {
  * Telegram Webhook Endpoint
  */
 app.post('/api/webhook/telegram', (req, res) => {
-    const isServerless = !!process.env.VERCEL;
-
     const msg = TelegramService.parseMessage(req.body);
     if (!msg) return res.sendStatus(200);
 
     (async () => {
-        const text = msg.text.toLowerCase();
-        
+        let text = (msg.text || '').toLowerCase();
+        let numbers = [];
+
+        // 1. Handle File Uploads (Document)
+        if (msg.document) {
+            const fileName = msg.document.file_name.toLowerCase();
+            if (fileName.endsWith('.txt') || fileName.endsWith('.csv')) {
+                await TelegramService.sendMessage(msg.chatId, `📂 *File detected:* \`${msg.document.file_name}\`\nProcessing identifiers...`);
+                const content = await TelegramService.downloadFile(msg.document.file_id);
+                if (content) {
+                    numbers = content.split(/[\r\n,]+/).map(n => n.replace(/\D/g, '')).filter(n => n.length > 5);
+                }
+            } else {
+                await TelegramService.sendMessage(msg.chatId, '⚠️ Only `.txt` or `.csv` files are supported for bulk operations.');
+                return;
+            }
+        }
+
+        // 2. Command Route
         if (text.startsWith('/start')) {
-            await TelegramService.sendMessage(msg.chatId, `🚦 *NITRO ENGINE v3 ACTIVE*\n\nHello ${msg.username}. The bot is running natively on ${process.env.VERCEL ? 'Vercel' : 'Render'} via WebHooks (Zero Waste Architecture).\n\nCommands:\n\`/scan <number>\` - Check an individual number\n\`/appeal <number>\` - Send Auto-Ban Appeal`);
+            await TelegramService.sendMessage(msg.chatId, `🚦 *NITRO ENGINE v3 ACTIVE*\n\nHello ${msg.username}. Bot is active via WebHooks.\n\n*Commands:*\n\`/scan <number>\` - Check single number\n\`/appeal <number>\` - Send Unban Appeal\n\n*Bulk Operations:*\nSimply upload a \`.txt\` or \`.csv\` file to start a bulk scan across the proxy cloud.`);
             return;
         }
 
-        if (text.startsWith('/scan')) {
-            const numbers = text.replace('/scan', '').trim().split(/[\s,]+/).filter(n => n.length > 5);
-            
-            if (numbers.length === 0) {
-                await TelegramService.sendMessage(msg.chatId, '⚠️ Please provide numbers. Example: `/scan 6281.. 6282..`');
+        // Handle text-based input if no file
+        if (numbers.length === 0) {
+            if (text.startsWith('/scan')) {
+                numbers = text.replace('/scan', '').trim().split(/[\s,]+/).map(n => n.replace(/\D/g, '')).filter(n => n.length > 5);
+            } else if (text.startsWith('/appeal')) {
+                const num = text.replace('/appeal', '').trim().replace(/\D/g, '');
+                if (!num) {
+                    await TelegramService.sendMessage(msg.chatId, '⚠️ Please provide a number. Example: `/appeal 628123456789`');
+                    return;
+                }
+                await TelegramService.sendMessage(msg.chatId, `⏳ Transmitting appeal for *+${num}*...`);
+                const result = await AppealManager.executeAppeal(num);
+                if (result.status === 'ERROR') {
+                    await TelegramService.sendMessage(msg.chatId, `❌ *FAILED*\n${result.message || result.error}`);
+                } else {
+                    await TelegramService.sendMessage(msg.chatId, `✅ *DISPATCHED*\nSuccess! Target: Meta Support`);
+                }
                 return;
             }
+        }
 
-            if (numbers.length === 1) {
-                const num = numbers[0];
-                await TelegramService.sendMessage(msg.chatId, `⏳ Scanning *${num}*...`);
-                const result = await ScraperService.checkNumberWithRetry(num, ProxyManager, PROXY_RETRIES, 4500);
-                if (result.exists) {
-                    const type = (result.type || 'Regular').toUpperCase();
-                    await TelegramService.sendMessage(msg.chatId, `✅ *HIT!* [${type}]\n${num} is registered.`);
-                } else {
-                    await TelegramService.sendMessage(msg.chatId, `❌ *MISS*\n${num} is NOT registered.`);
-                }
-            } else {
-                const limit = Math.min(numbers.length, 50);
-                await TelegramService.sendMessage(msg.chatId, `🚀 *Turbo-Scanning ${numbers.length} numbers...*`);
+        // 3. Execution (Bulk or Single)
+        if (numbers.length > 0) {
+            const isBulk = numbers.length > 1;
+            if (isBulk) {
+                const limit = Math.min(numbers.length, 200); // Guard for Vercel timeout
+                await TelegramService.sendMessage(msg.chatId, `🚀 *Turbo-Scanning ${limit} numbers...*`);
                 
-                const results = await Promise.all(numbers.slice(0, 100).map(num => 
+                const results = await Promise.all(numbers.slice(0, limit).map(num => 
                     ScraperService.checkNumberWithRetry(num, ProxyManager, 1, 4000).catch(() => ({ exists: false }))
                 ));
                 
                 const hits = results.filter(r => r.exists);
-                const report = hits.map(r => `• \`${r.number}\` [${(r.type || 'REG').toUpperCase()}]`).join('\n');
+                const report = hits.slice(0, 50).map(r => `• \`${r.number}\` [${(r.type || 'REG').toUpperCase()}]`).join('\n');
                 
-                await TelegramService.sendMessage(msg.chatId, `📊 *SCAN REPORT*\nTotal: ${numbers.length}\nHits: ${hits.length}\n\n${report || 'No hits found.'}`);
-            }
-            return;
-        }
-
-        if (text.startsWith('/appeal')) {
-            const num = text.replace('/appeal', '').trim();
-            if (!num) {
-                await TelegramService.sendMessage(msg.chatId, '⚠️ Please provide a number. Example: `/appeal 628123456789`');
-                return;
-            }
-
-            await TelegramService.sendMessage(msg.chatId, `⏳ Transmitting automatic appeal for *${num}*...`);
-            const result = await AppealManager.executeAppeal(num);
-
-            if (result.status === 'ERROR') {
-                await TelegramService.sendMessage(msg.chatId, `❌ *APPEAL FAILED*\nError: ${result.message || result.error}`);
+                await TelegramService.sendMessage(msg.chatId, `📊 *SCAN REPORT*\nTotal: ${limit}\nHits: ${hits.length}\n\n${report || 'No hits found.'}${hits.length > 50 ? '\n\n...and more.' : ''}`);
             } else {
-                await TelegramService.sendMessage(msg.chatId, `✅ *APPEAL DISPATCHED*\nSuccess! Target: ${result.email || 'Meta Support'}`);
+                const num = numbers[0];
+                await TelegramService.sendMessage(msg.chatId, `⏳ Scanning *${num}*...`);
+                const result = await ScraperService.checkNumberWithRetry(num, ProxyManager, PROXY_RETRIES, 4500);
+                if (result.exists) {
+                    await TelegramService.sendMessage(msg.chatId, `✅ *HIT!* [${(result.type || 'Regular').toUpperCase()}]\n${num} is registered.`);
+                } else {
+                    await TelegramService.sendMessage(msg.chatId, `❌ *MISS*\n${num} is NOT registered.`);
+                }
             }
-            return;
         }
     })().then(() => {
         if (!res.headersSent) res.sendStatus(200);

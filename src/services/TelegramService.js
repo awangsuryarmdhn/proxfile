@@ -52,17 +52,50 @@ class TelegramService {
     }
 
     /**
+     * Download a file from Telegram
+     * @param {string} fileId 
+     * @returns {Promise<string|null>}
+     */
+    async downloadFile(fileId) {
+        if (!this.apiUrl) return null;
+        try {
+            // 1. Get file path
+            const { data: fileData } = await axios.get(`${this.apiUrl}/getFile?file_id=${fileId}`);
+            const filePath = fileData.result.file_path;
+            
+            // 2. Download content
+            const downloadUrl = `https://api.telegram.org/file/bot${this.token}/${filePath}`;
+            const { data: content } = await axios.get(downloadUrl);
+            return typeof content === 'string' ? content : JSON.stringify(content);
+        } catch (error) {
+            console.error('[Telegram] File download failed:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Normalizes a phone number (removes non-digits, ensures no + prefix for processing)
+     * @param {string} number 
+     * @returns {string}
+     */
+    normalizeNumber(number) {
+        return number.replace(/\D/g, '');
+    }
+
+    /**
      * Parses the incoming webhook payload 
      * @param {Object} reqBody 
      * @returns {Object|null}
      */
     parseMessage(reqBody) {
-        if (!reqBody || !reqBody.message || !reqBody.message.text) return null;
+        if (!reqBody || (!reqBody.message && !reqBody.edited_message)) return null;
+        const msg = reqBody.message || reqBody.edited_message;
         
         return {
-            chatId: reqBody.message.chat.id,
-            text: reqBody.message.text.trim(),
-            username: reqBody.message.from.username || reqBody.message.from.first_name || 'User'
+            chatId: msg.chat.id,
+            text: msg.text ? msg.text.trim() : null,
+            document: msg.document || null,
+            username: msg.from.username || msg.from.first_name || 'User'
         };
     }
 }

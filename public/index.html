@@ -192,11 +192,11 @@
             <div class="panel-title">Batch Configuration</div>
             
             <label class="drop-zone" id="dropZone">
-                <input type="file" id="fileInput" accept=".txt">
+                <input type="file" id="fileInput" accept=".txt,.csv">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
                 </svg>
-                <p id="fileLabel">Upload Dataset (.txt)</p>
+                <p id="fileLabel">Upload Dataset (.txt, .csv)</p>
             </label>
 
             <div class="stats">
@@ -227,9 +227,15 @@
             <button class="btn btn-outline" id="stopBtn" disabled>
                 Halt Engine
             </button>
-            <button class="btn btn-outline" id="downloadBtn" disabled>
-                Export CSV
-            </button>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <button class="btn btn-outline" id="downloadCsvBtn" disabled>
+                    CSV Report
+                </button>
+                <button class="btn btn-outline" id="downloadTxtBtn" disabled>
+                    TXT List
+                </button>
+            </div>
 
             <!-- Auto Appeal Mini-UI -->
             <div id="appealSection" style="margin-top: 24px; padding-top: 20px; border-top: 1px dashed var(--border);">
@@ -277,13 +283,19 @@
         const fileInput = document.getElementById('fileInput');
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
-        const downloadBtn = document.getElementById('downloadBtn');
+        const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+        const downloadTxtBtn = document.getElementById('downloadTxtBtn');
         const appealBtn = document.getElementById('appealBtn');
         const logBox = document.getElementById('logBox');
         
         let numbers = [];
         let results = [];
         let isRunning = false;
+
+        function setDownloadButtons(state) {
+            downloadCsvBtn.disabled = !state;
+            downloadTxtBtn.disabled = !state;
+        }
 
         // Logging utility
         function addLog(tag, msg, type = '') {
@@ -309,6 +321,12 @@
             if (logBox.children.length > 200) logBox.firstElementChild.remove();
         }
 
+        // Robust Number Normalization
+        function cleanIdentifier(val) {
+            // Remove + sign, spaces, hyphens and any alpha characters
+            return val.replace(/\+/g, '').replace(/[^0-9]/g, '').trim();
+        }
+
         // File Parsing
         fileInput.onchange = (e) => {
             const file = e.target.files[0];
@@ -317,11 +335,15 @@
             const reader = new FileReader();
             reader.onload = (ev) => {
                 const text = ev.target.result;
-                numbers = text.split(/\r?\n/).map(l => l.replace(/\D/g, '')).filter(l => l.length > 5);
+                // Split by line or comma, then clean each part
+                numbers = text.split(/[\r\n,]+/)
+                    .map(l => cleanIdentifier(l))
+                    .filter(l => l.length > 5);
+                
                 document.getElementById('totalCount').innerText = numbers.length;
                 document.getElementById('fileLabel').innerText = `${file.name} (${numbers.length} items)`;
                 startBtn.disabled = false;
-                addLog('SYS', `Loaded ${numbers.length} identifiers from disk.`);
+                addLog('SYS', `Loaded ${numbers.length} identifiers. Registry clean.`);
             };
             reader.readAsText(file);
         };
@@ -334,7 +356,7 @@
             results = [];
             startBtn.disabled = true;
             stopBtn.disabled = false;
-            downloadBtn.disabled = true;
+            setDownloadButtons(false);
             document.getElementById('globalStatus').style.backgroundColor = '#facc15';
             document.getElementById('threadStatus').innerText = 'Processing Array';
 
@@ -342,7 +364,6 @@
             let hits = 0;
             const startTime = Date.now();
             
-            // Liquid-Fast Progress Configuration
             const MAX_CONCURRENT_CHUNKS = 15; 
             const CHUNK_SIZE = 25; 
             const chunks = [];
@@ -350,7 +371,7 @@
                 chunks.push(numbers.slice(i, i + CHUNK_SIZE));
             }
 
-            addLog('SYS', `Execution mapped. Parallel threads: ${MAX_CONCURRENT_CHUNKS}`);
+            addLog('SYS', `Engine warm. Threads deployed.`);
 
             let currentIndex = 0;
 
@@ -366,7 +387,7 @@
                         });
                         
                         if (!resp.ok) {
-                            addLog('ERR', `Block ${chunkIndex+1} failed (HTTP ${resp.status})`);
+                            addLog('ERR', `Block ${chunkIndex+1} drop.`);
                             processed += chunk.length;
                             continue;
                         }
@@ -377,14 +398,13 @@
                             if (r.exists) {
                                 hits++;
                                 const typeShort = r.type === 'Business' ? 'BIZ' : 'REG';
-                                addLog('HIT', `Validated: ${r.number}`, typeShort);
+                                addLog('HIT', `+${r.number}`, typeShort);
                             }
                         });
                         
                         processed += chunk.length;
                         updateUI(processed, hits, startTime);
                     } catch (err) {
-                        addLog('ERR', `Block ${chunkIndex+1} network drop. Skipping.`);
                         processed += chunk.length; 
                         updateUI(processed, hits, startTime);
                     }
@@ -397,14 +417,14 @@
             }
             await Promise.all(workers);
 
-            addLog('SYS', `Routine terminated. Yield: ${hits} elements.`);
+            addLog('SYS', `Sequence complete. Output: ${hits} hits.`);
             document.getElementById('globalStatus').style.backgroundColor = 'var(--success)';
             document.getElementById('threadStatus').innerText = 'Standby';
             
             isRunning = false;
             startBtn.disabled = false;
             stopBtn.disabled = true;
-            downloadBtn.disabled = false;
+            setDownloadButtons(true);
         };
 
         function updateUI(processed, hits, startTime) {
@@ -418,32 +438,43 @@
             const speed = Math.floor(processed / elapsedMin) || 0;
             document.getElementById('speedText').innerText = `${speed} / min`;
 
-            // Calculate ETA
             if (processed > 10) {
                 const msPerItem = elapsedMs / processed;
                 const remainingItems = numbers.length - processed;
                 const etaMs = remainingItems * msPerItem;
                 const etaMin = Math.ceil(etaMs / 60000);
-                document.getElementById('etaText').innerText = `ETA: ${etaMin}m left`;
+                document.getElementById('etaText').innerText = `ETA: ${etaMin}m`;
             }
         }
 
         stopBtn.onclick = () => {
             isRunning = false;
-            addLog('ERR', 'Halt command intercepted. Stopping sequencer.');
+            addLog('ERR', 'Emergency Halt.');
             stopBtn.disabled = true;
         };
 
-        downloadBtn.onclick = () => {
+        downloadCsvBtn.onclick = () => {
             const header = "Number,Type\n";
             const content = results
                 .filter(r => r.exists)
-                .map(r => `${r.number},${r.type || 'Regular'}`)
+                .map(r => `+${r.number},${r.type || 'Regular'}`)
                 .join('\n');
             const blob = new Blob([header + content], { type: 'text/csv' });
             const a = document.createElement('a');
             a.href = window.URL.createObjectURL(blob);
-            a.download = `NITRO_REPORT_${Date.now()}.csv`;
+            a.download = `NITRO_HITS_${Date.now()}.csv`;
+            a.click();
+        };
+
+        downloadTxtBtn.onclick = () => {
+            const content = results
+                .filter(r => r.exists)
+                .map(r => r.number)
+                .join('\n');
+            const blob = new Blob([content], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = window.URL.createObjectURL(blob);
+            a.download = `NITRO_LIST_${Date.now()}.txt`;
             a.click();
         };
 
