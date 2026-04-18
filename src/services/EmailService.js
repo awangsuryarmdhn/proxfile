@@ -7,11 +7,37 @@ class EmailService {
     }
 
     init() {
-        // If SMTP_SERVICE is set (e.g. 'outlook', 'gmail'), nodemailer uses its
-        // built-in host/port/security settings for that provider — no need to
-        // specify SMTP_HOST / SMTP_PORT separately.
+        // If SMTP_SERVICE is set, build an explicit host/port config to avoid
+        // relying on nodemailer's potentially outdated well-known service map.
         let config;
-        if (process.env.SMTP_SERVICE) {
+        const service = (process.env.SMTP_SERVICE || '').toLowerCase();
+
+        if (service === 'outlook' || service === 'hotmail') {
+            // Personal Outlook.com / Hotmail accounts
+            // Requires an App Password when two-step verification is enabled.
+            config = {
+                host: 'smtp-mail.outlook.com',
+                port: 587,
+                secure: false,
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS
+                }
+            };
+        } else if (service === 'office365') {
+            // Microsoft 365 / Office 365 business accounts
+            // Requires: SMTP AUTH enabled for the mailbox in the M365 admin centre.
+            config = {
+                host: 'smtp.office365.com',
+                port: 587,
+                secure: false,
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS
+                }
+            };
+        } else if (service) {
+            // Other well-known services supported by nodemailer (e.g. 'gmail')
             config = {
                 service: process.env.SMTP_SERVICE,
                 auth: {
