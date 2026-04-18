@@ -7,17 +7,30 @@ class EmailService {
     }
 
     init() {
-        // Default to a development/testing transporter if no env provided
-        // In production, user should provide SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
-        const config = {
-            host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-            port: process.env.SMTP_PORT || 587,
-            secure: false,
-            auth: {
-                user: process.env.SMTP_USER || 'test@ethereal.email',
-                pass: process.env.SMTP_PASS || 'testpassword'
-            }
-        };
+        // If SMTP_SERVICE is set (e.g. 'outlook', 'gmail'), nodemailer uses its
+        // built-in host/port/security settings for that provider — no need to
+        // specify SMTP_HOST / SMTP_PORT separately.
+        let config;
+        if (process.env.SMTP_SERVICE) {
+            config = {
+                service: process.env.SMTP_SERVICE,
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS
+                }
+            };
+        } else {
+            // Fallback: custom SMTP host configuration
+            config = {
+                host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+                port: parseInt(process.env.SMTP_PORT, 10) || 587,
+                secure: false,
+                auth: {
+                    user: process.env.SMTP_USER || 'test@ethereal.email',
+                    pass: process.env.SMTP_PASS || 'testpassword'
+                }
+            };
+        }
 
         this.transporter = nodemailer.createTransport(config);
     }
@@ -26,15 +39,17 @@ class EmailService {
      * Sends an email
      * @param {Object} options 
      * @param {string} options.from
+     * @param {string} [options.replyTo]
      * @param {string} options.to
      * @param {string} options.subject
      * @param {string} options.text
      * @param {string} [options.html]
      */
-    async sendMail({ from, to, subject, text, html }) {
+    async sendMail({ from, replyTo, to, subject, text, html }) {
         try {
             const info = await this.transporter.sendMail({
                 from: from || process.env.SMTP_USER,
+                replyTo,
                 to,
                 subject,
                 text,

@@ -21,10 +21,11 @@ class AppealManager {
             const template = EmailService.getWhatsAppAppealTemplate(number, reason);
 
             // 3. Send the appeal via email
-            // Note: We use the temp email address as the 'From' or 'Reply-To' if possible.
-            // Some SMTP providers might overwrite the 'From', so we ensure it's at least in the body.
+            // The 'from' must match the authenticated SMTP_USER to avoid rejection.
+            // The temp address is included as Reply-To so WhatsApp Support responses go there.
             const result = await EmailService.sendMail({
-                from: tempAccount.address, 
+                from: process.env.SMTP_USER,
+                replyTo: tempAccount.address,
                 to: template.to,
                 subject: template.subject,
                 text: template.text
