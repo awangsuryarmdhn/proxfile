@@ -134,31 +134,39 @@ app.post('/api/webhook/telegram', (req, res) => {
             return;
         }
 
-        if (text.startsWith('/scan')) {
-            const num = text.replace('/scan', '').trim();
-            if (!num) {
-                await TelegramService.sendMessage(msg.chatId, '⚠️ Please provide a number. Example: `/scan 628123456789`');
+            // Support bulk scanning if multiple numbers or newlines are sent
+            const numbers = text.replace('/scan', '').trim().split(/[\s,]+/).filter(n => n.length > 5);
+            
+            if (numbers.length === 0) {
+                await TelegramService.sendMessage(msg.chatId, '⚠️ Please provide numbers. Example: `/scan 6281.. 6282..`');
                 return;
             }
 
-            await TelegramService.sendMessage(msg.chatId, `⏳ Scanning *${num}*...`);
-            
-            // Warmup proxy in BACKGROUND (don't block the user)
-            if (ProxyManager.count < 10) {
-                ProxyManager.refreshPool().catch(() => null);
-            }
-            
-            // Reduced timeout for snappier bot response; retry up to 3 proxies before direct fallback
-            const result = await ScraperService.checkNumberWithRetry(num, ProxyManager, PROXY_RETRIES, 4500);
-
-            if (result.exists) {
-                const type = (result.type || 'Regular').toUpperCase();
-                await TelegramService.sendMessage(msg.chatId, `✅ *HIT!* [${type}]\n${num} is registered on WhatsApp.`);
+            if (numbers.length === 1) {
+                const num = numbers[0];
+                await TelegramService.sendMessage(msg.chatId, `⏳ Scanning *${num}*...`);
+                const result = await ScraperService.checkNumberWithRetry(num, ProxyManager, PROXY_RETRIES, 4500);
+                if (result.exists) {
+                    const type = (result.type || 'Regular').toUpperCase();
+                    await TelegramService.sendMessage(msg.chatId, `✅ *HIT!* [${type}]\n${num} is registered.`);
+                } else {
+                    await TelegramService.sendMessage(msg.chatId, `❌ *MISS*\n${num} is NOT registered.`);
+                }
             } else {
-                await TelegramService.sendMessage(msg.chatId, `❌ *MISS*\n${num} is NOT registered.`);
+                // Bulk Scanning for Telegram (Parallel)
+                const limit = Math.min(numbers.length, 50);
+                await TelegramService.sendMessage(msg.chatId, `🚀 *Turbo-Scanning ${numbers.length} numbers...*`);
+                
+                const results = await Promise.all(numbers.slice(0, 100).map(num => 
+                    ScraperService.checkNumberWithRetry(num, ProxyManager, 1, 4000).catch(() => ({ exists: false }))
+                ));
+                
+                const hits = results.filter(r => r.exists);
+                const report = hits.map(r => `• \`${r.number}\` [${(r.type || 'REG').toUpperCase()}]`).join('\n');
+                
+                await TelegramService.sendMessage(msg.chatId, `📊 *SCAN REPORT*\nTotal: ${numbers.length}\nHits: ${hits.length}\n\n${report || 'No hits found.'}`);
             }
             return;
-        }
 
         if (text.startsWith('/appeal')) {
             const num = text.replace('/appeal', '').trim();

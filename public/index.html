@@ -342,9 +342,9 @@
             let hits = 0;
             const startTime = Date.now();
             
-            // Parallel Chunk Processing (Optimized for Speed + Security)
-            const MAX_CONCURRENT_CHUNKS = 5; 
-            const CHUNK_SIZE = 40; 
+            // Hyper-Speed Configuration (Target: 12k in <10m)
+            const MAX_CONCURRENT_CHUNKS = 10; 
+            const CHUNK_SIZE = 30; 
             const chunks = [];
             for (let i = 0; i < numbers.length; i += CHUNK_SIZE) {
                 chunks.push(numbers.slice(i, i + CHUNK_SIZE));
@@ -362,7 +362,7 @@
                         const resp = await fetch('/api/scan', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ numbers: chunk, concurrency: 15, timeout: 7000 })
+                            body: JSON.stringify({ numbers: chunk, concurrency: 20, timeout: 5000 })
                         });
                         
                         if (!resp.ok) {
