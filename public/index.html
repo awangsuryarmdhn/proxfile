@@ -435,10 +435,10 @@
         };
 
         downloadBtn.onclick = () => {
-            const header = "Phone Number,Status,Account Type,Method\n";
+            const header = "Number,Type\n";
             const content = results
                 .filter(r => r.exists)
-                .map(r => `${r.number},${r.exists ? 'YES' : 'NO'},${r.type || 'N/A'},${r.method || 'Unknown'}`)
+                .map(r => `${r.number},${r.type || 'Regular'}`)
                 .join('\n');
             const blob = new Blob([header + content], { type: 'text/csv' });
             const a = document.createElement('a');
