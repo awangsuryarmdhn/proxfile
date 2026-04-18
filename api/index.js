@@ -40,7 +40,7 @@ app.use(express.static(PUBLIC_PATH));
 app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'UP', 
-        message: 'Nitro Web API is active on Render',
+        message: `Nitro Web API is active on ${process.env.VERCEL ? 'Vercel' : process.env.RENDER ? 'Render' : 'Local'}`,
         timestamp: new Date().toISOString()
     });
 });
@@ -189,7 +189,8 @@ app.get('/api/status', async (req, res) => {
         },
         email: {
             active: !!process.env.SMTP_USER && !!process.env.SMTP_PASS
-        }
+        },
+        platform: process.env.VERCEL ? 'Vercel' : process.env.RENDER ? 'Render' : 'Local'
     });
 });
 app.get('*', (req, res) => {
@@ -213,7 +214,8 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`📡 Server Active: http://localhost:${PORT}`);
+    const platform = process.env.VERCEL ? 'Vercel' : process.env.RENDER ? 'Render' : 'Local';
+    console.log(`📡 Server Active [${platform}]: http://localhost:${PORT}`);
 });
 
 export default app;

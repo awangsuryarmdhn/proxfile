@@ -181,8 +181,8 @@
             <div class="status-dot" id="globalStatus"></div>
             Nitro Engine
         </div>
-        <div style="font-size: 12px; color: var(--text-muted);">
-            Render Edition // V3.1
+        <div id="platformLabel" style="font-size: 12px; color: var(--text-muted);">
+            Dual Engine // V3.1
         </div>
     </nav>
 
@@ -503,6 +503,12 @@
                     tgPulse.style.background = 'var(--error)';
                     tgStatusText.innerText = 'Bot Inactive (Check .env)';
                     launchTgBtn.style.display = 'none';
+                }
+
+                // Update Platform Label
+                const platBox = document.getElementById('platformLabel');
+                if (data.platform) {
+                    platBox.innerText = `${data.platform} Edition // V3.1`;
                 }
 
                 // Update Appeal UI based on Email Status
