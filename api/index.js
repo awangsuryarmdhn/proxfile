@@ -13,7 +13,10 @@ const PUBLIC_PATH = path.join(__dirname, '..', 'public');
 
 import TelegramService from '../src/services/TelegramService.js';
 
-const PROXY_RETRIES = 3;
+const PROXY_RETRIES = 2;
+const TELEGRAM_CONCURRENCY = 15;
+const TELEGRAM_BATCH_SIZE = 100;
+const TELEGRAM_PROGRESS_INTERVAL = 500; // send progress every N numbers
 const app = express();
 
 app.use(cors());
@@ -105,8 +108,12 @@ app.post('/api/appeal', async (req, res) => {
  * Telegram Webhook Endpoint
  */
 app.post('/api/webhook/telegram', (req, res) => {
+    // Acknowledge Telegram immediately to prevent webhook failures / retries.
+    // Vercel keeps the function alive while there are pending async operations,
+    // so background processing continues until it completes or maxDuration is hit.
     const msg = TelegramService.parseMessage(req.body);
-    if (!msg) return res.sendStatus(200);
+    res.sendStatus(200);
+    if (!msg) return;
 
     (async () => {
         let text = (msg.text || '').toLowerCase();
@@ -158,17 +165,34 @@ app.post('/api/webhook/telegram', (req, res) => {
         if (numbers.length > 0) {
             const isBulk = numbers.length > 1;
             if (isBulk) {
-                const limit = Math.min(numbers.length, 200); // Guard for Vercel timeout
-                await TelegramService.sendMessage(msg.chatId, `🚀 *Turbo-Scanning ${limit} numbers...*`);
-                
-                const results = await Promise.all(numbers.slice(0, limit).map(num => 
-                    ScraperService.checkNumberWithRetry(num, ProxyManager, 1, 4000).catch(() => ({ exists: false }))
-                ));
-                
-                const hits = results.filter(r => r.exists);
-                const report = hits.slice(0, 50).map(r => `• \`${r.number}\` [${(r.type || 'REG').toUpperCase()}]`).join('\n');
-                
-                await TelegramService.sendMessage(msg.chatId, `📊 *SCAN REPORT*\nTotal: ${limit}\nHits: ${hits.length}\n\n${report || 'No hits found.'}${hits.length > 50 ? '\n\n...and more.' : ''}`);
+                const total = numbers.length;
+                await TelegramService.sendMessage(msg.chatId, `🚀 *Turbo-Scanning ${total} numbers...*\n⏳ Processing in batches of ${TELEGRAM_BATCH_SIZE}.`);
+
+                const scanLimit = pLimit(TELEGRAM_CONCURRENCY);
+                let allHits = [];
+                let processed = 0;
+
+                for (let i = 0; i < total; i += TELEGRAM_BATCH_SIZE) {
+                    const batch = numbers.slice(i, i + TELEGRAM_BATCH_SIZE);
+                    const batchResults = await Promise.all(
+                        batch.map(num => scanLimit(() =>
+                            ScraperService.checkNumberWithRetry(num, ProxyManager, 1, 4000).catch(() => ({ exists: false }))
+                        ))
+                    );
+                    const batchHits = batchResults.filter(r => r.exists);
+                    allHits = allHits.concat(batchHits);
+                    processed += batch.length;
+
+                    // Send a progress update at meaningful intervals to avoid chat spam
+                    const prevMilestone = Math.floor((processed - batch.length) / TELEGRAM_PROGRESS_INTERVAL);
+                    const currMilestone = Math.floor(processed / TELEGRAM_PROGRESS_INTERVAL);
+                    if (total > TELEGRAM_BATCH_SIZE && currMilestone > prevMilestone) {
+                        await TelegramService.sendMessage(msg.chatId, `📈 Progress: ${processed}/${total} | Hits so far: ${allHits.length}`);
+                    }
+                }
+
+                const report = allHits.slice(0, 50).map(r => `• \`${r.number}\` [${(r.type || 'REG').toUpperCase()}]`).join('\n');
+                await TelegramService.sendMessage(msg.chatId, `📊 *SCAN COMPLETE*\nTotal: ${total}\nHits: ${allHits.length}\n\n${report || 'No hits found.'}${allHits.length > 50 ? '\n\n...and more.' : ''}`);
             } else {
                 const num = numbers[0];
                 await TelegramService.sendMessage(msg.chatId, `⏳ Scanning *${num}*...`);
@@ -180,11 +204,8 @@ app.post('/api/webhook/telegram', (req, res) => {
                 }
             }
         }
-    })().then(() => {
-        if (!res.headersSent) res.sendStatus(200);
-    }).catch(err => {
+    })().catch(err => {
         console.error('[Telegram Webhook Error]', err.message);
-        if (!res.headersSent) res.sendStatus(200);
     });
 });
 
