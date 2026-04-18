@@ -35,6 +35,23 @@ class TelegramService {
     }
 
     /**
+     * Set Webhook for the Telegram Bot
+     * @param {string} url 
+     */
+    async setWebhook(url) {
+        if (!this.apiUrl) return false;
+        try {
+            const webhookUrl = `${url}/api/webhook/telegram`;
+            await axios.get(`${this.apiUrl}/setWebhook?url=${webhookUrl}`);
+            console.log(`[Telegram] Webhook established: ${webhookUrl}`);
+            return true;
+        } catch (error) {
+            console.error('[Telegram] Webhook setup failed:', error.response?.data || error.message);
+            return false;
+        }
+    }
+
+    /**
      * Parses the incoming webhook payload 
      * @param {Object} reqBody 
      * @returns {Object|null}

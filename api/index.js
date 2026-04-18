@@ -103,6 +103,7 @@ app.post('/api/appeal', async (req, res) => {
 
 /**
  * Telegram Webhook Endpoint
+ */
 app.post('/api/webhook/telegram', (req, res) => {
     const isServerless = !!process.env.VERCEL;
 
@@ -177,6 +178,26 @@ app.post('/api/webhook/telegram', (req, res) => {
 });
 
 /**
+ * Telegram Webhook Setup
+ */
+app.get('/api/telegram/setup', async (req, res) => {
+    try {
+        const protocol = req.headers['x-forwarded-proto'] || 'http';
+        const host = req.headers.host;
+        const fullUrl = `${protocol}://${host}`;
+        
+        const success = await TelegramService.setWebhook(fullUrl);
+        if (success) {
+            res.json({ status: 'SUCCESS', message: `Webhook set to ${fullUrl}/api/webhook/telegram` });
+        } else {
+            res.status(500).json({ status: 'ERROR', message: 'Failed to set webhook. Check TELEGRAM_BOT_TOKEN.' });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * System Status API
  */
 app.get('/api/status', async (req, res) => {
@@ -200,6 +221,19 @@ app.get('*', (req, res) => {
 // Boot Sequence: Load System Status and Proxies immediately
 (async () => {
     console.log('--- 🚀 NITRO ENGINE BOOTING ---');
+    
+    // Auto-setup Telegram Webhook if possible
+    if (process.env.TELEGRAM_BOT_TOKEN) {
+        let host = null;
+        if (process.env.VERCEL_URL) host = `https://${process.env.VERCEL_URL}`;
+        else if (process.env.RENDER_EXTERNAL_URL) host = process.env.RENDER_EXTERNAL_URL;
+        
+        if (host) {
+            console.log(`[Boot] Attempting auto-webhook setup for host: ${host}`);
+            await TelegramService.setWebhook(host);
+        }
+    }
+
     // Pre-warm proxies immediately
     ProxyManager.refreshPool().then(count => {
         console.log(`🌐 Initial Proxy Pool: ${count} addresses loaded.`);
