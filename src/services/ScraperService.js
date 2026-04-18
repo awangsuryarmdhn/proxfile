@@ -3,6 +3,9 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 
 const agentCache = new Map();
 
+// Minimum HTML response length that indicates a real page; shorter responses are treated as blocks.
+const MIN_HTML_LENGTH = 500;
+
 /**
  * ScraperService - A simplified, maintainable engine for checking WA status.
  * Focuses on high-accuracy, language-agnostic detection.
@@ -45,7 +48,7 @@ class ScraperService {
             const isBlocked = html.includes('challenge-running') || 
                               html.includes('Checking your browser') || 
                               html.includes('Attention Required!') ||
-                              html.length < 500;
+                              html.length < MIN_HTML_LENGTH;
 
             if (isBlocked) {
                 return { number, exists: false, proxy: proxy || 'Direct', status: 'BLOCKED' };
@@ -108,6 +111,10 @@ class ScraperService {
      */
     static async checkNumberMessenger(number, proxy = null, timeout = 9000) {
         const cleanNum = number.replace(/\D/g, '');
+        // Validate: only digits, reasonable length (7–15) — prevents SSRF via crafted input
+        if (!/^\d{7,15}$/.test(cleanNum)) {
+            return { number, exists: false, proxy: proxy || 'Direct', status: 'INVALID', method: 'messenger' };
+        }
         const url = `https://www.messenger.com/t/+${cleanNum}`;
 
         let agent = null;
@@ -135,7 +142,7 @@ class ScraperService {
             const isBlocked = html.includes('challenge-running') ||
                               html.includes('Checking your browser') ||
                               html.includes('Attention Required!') ||
-                              html.length < 500;
+                              html.length < MIN_HTML_LENGTH;
 
             if (isBlocked) {
                 return { number, exists: false, proxy: proxy || 'Direct', status: 'BLOCKED', method: 'messenger' };
@@ -193,6 +200,12 @@ class ScraperService {
      * @param {number} timeout - Request timeout per attempt
      * @param {string} method - Check method: 'whatsapp' (default) or 'messenger'
      * @returns {Promise<{number: string, exists: boolean, proxy: string, status: string}>}
+     *   status values:
+     *     'SUCCESS'     - check completed; `exists` reflects registration state
+     *     'UNCONFIRMED' - Messenger returned only a login wall; registration state unknown (`exists` is false)
+     *     'BLOCKED'     - proxy or WAF blocked the request
+     *     'ERROR'       - network or unexpected error
+     *   Both 'SUCCESS' and 'UNCONFIRMED' are treated as terminal states (no further retry).
      */
     static async checkNumberWithRetry(number, proxyManager, maxRetries = 3, timeout = 9000, method = 'whatsapp') {
         const checkFn = method === 'messenger'
