@@ -21,63 +21,6 @@ class ScraperService {
     }
 
     /**
-     * Hyper-Optimized Web Engine
-     * Detects REG/BIZ via React-State Metadata
-     */
-    static async checkViaWebLink(number, proxy = null, timeout = 7000) {
-        let agent = null;
-        if (proxy) {
-            try {
-                agent = new HttpsProxyAgent(proxy);
-            } catch (e) {}
-        }
-
-        try {
-            const response = await axios.get(`https://wa.me/${number}`, {
-                httpsAgent: agent,
-                timeout,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept-Language': 'en-US,en;q=0.9'
-                }
-            });
-
-            const data = response.data;
-            
-            // Check for existence markers in the React-Hydration state
-            const isRegistered = data.includes('whatsapp://send/?phone=') || 
-                               data.includes('whatsapp://send?phone=') ||
-                               data.includes('"phone":"' + number + '"');
-
-            if (!isRegistered) {
-                return { number, exists: false, status: 'NOT_FOUND', method: 'WebLink' };
-            }
-
-            // Detect Business status via specific UI markers
-            const isBiz = data.includes('Business Account') || 
-                         data.includes('WhatsApp Business') ||
-                         data.includes('is_business":true');
-
-            return {
-                number,
-                exists: true,
-                status: 'OK',
-                type: isBiz ? 'Business' : 'Regular',
-                method: 'WebLink'
-            };
-
-        } catch (error) {
-            return {
-                number,
-                exists: false,
-                status: 'ERROR',
-                error: error.message,
-                method: 'WebLink'
-            };
-        }
-    }
-
-    /**
      * Uses Meta's internal Messenger GraphQL to check for WhatsApp registration.
      * Extremely fast and accurate.
      */
