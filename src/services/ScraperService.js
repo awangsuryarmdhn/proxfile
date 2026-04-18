@@ -51,25 +51,33 @@ class ScraperService {
                 return { number, exists: false, proxy: proxy || 'Direct', status: 'BLOCKED' };
             }
 
-            // REFINED DETECTION LOGIC (The "Plus Sign" Heuristic)
-            // Valid profiles: "Chat on WhatsApp with +62 898 7634 7255"
-            // Invalid: no "with +" section, or number-specific digits absent
-            
-            // Marker 1: "with +" appears AND the last 6 digits of the number are present.
-            // Using 6 digits (vs 2) prevents false positives from country-code-only matches
-            // (e.g. "with +62" appearing on error pages for unregistered +62 numbers).
-            const hasPlusFormatted = html.includes(`with +`) && html.includes(cleanNum.slice(-6));
+            // REFINED DETECTION LOGIC
+            // Valid profile page: "Chat on WhatsApp with +62 898 7634 7255"
+            // Invalid: error page — may still contain the phone number in a meta/URL tag,
+            // so a simple substring search on a few trailing digits causes false positives.
+
+            // Marker 1: Extract digits from the ~55-character window immediately after
+            // "with +" and verify they match the full cleaned number.  This prevents
+            // false positives caused by the input number appearing in the page's own URL
+            // (e.g. meta og:url / canonical tags always include phone=<cleanNum>).
+            let hasPlusFormatted = false;
+            const withPlusIdx = html.indexOf('with +');
+            if (withPlusIdx !== -1) {
+                // Window starts right at the '+' sign; 55 chars covers any E.164 number
+                const windowText = html.substring(withPlusIdx + 5, withPlusIdx + 60);
+                const digitsInWindow = windowText.replace(/\D/g, '');
+                // Accept an exact full-number match, or if the window only captured the
+                // subscriber portion (shorter number), confirm cleanNum ends with it.
+                hasPlusFormatted = digitsInWindow === cleanNum ||
+                                   (digitsInWindow.length >= 7 && cleanNum.endsWith(digitsInWindow));
+            }
 
             // Marker 2: Specific Business Account label
             const isBusiness = html.includes('Business Account');
 
-            // Marker 3: App deep-link URL presence (though this can be generic)
-            const hasDeepLink = html.includes(`whatsapp://send/?phone=${cleanNum}`) ||
-                                html.includes(`wa.me/${cleanNum}`);
-
             // VERDICT
-            // A number exists IF it has the '+' sign in the "Chat on WhatsApp with" section
-            // OR if it is explicitly marked as a Business Account.
+            // A number exists IF the formatted "+CC…" number appears right after "with +"
+            // (meaning WhatsApp rendered a real profile) OR it is a Business Account page.
             const exists = hasPlusFormatted || isBusiness;
 
             return { 
