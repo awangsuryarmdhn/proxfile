@@ -152,9 +152,10 @@ app.post('/api/webhook/telegram', (req, res) => {
             const result = await ScraperService.checkNumberWithRetry(num, ProxyManager, PROXY_RETRIES, 4500);
 
             if (result.exists) {
-                await TelegramService.sendMessage(msg.chatId, `✅ *HIT!* \n${num} is registered on WhatsApp.`);
+                const type = (result.type || 'Regular').toUpperCase();
+                await TelegramService.sendMessage(msg.chatId, `✅ *HIT!* [${type}]\n${num} is registered on WhatsApp.`);
             } else {
-                await TelegramService.sendMessage(msg.chatId, `❌ *MISS* \n${num} is NOT registered (or proxy blocked).`);
+                await TelegramService.sendMessage(msg.chatId, `❌ *MISS*\n${num} is NOT registered.`);
             }
             return;
         }

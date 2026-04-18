@@ -102,25 +102,32 @@ class EmailService {
         }
     }
 
-    /**
-     * Generates a WhatsApp appeal template
-     * @param {string} phoneNumber 
-     * @param {string} [reason]
-     * @returns {Object}
-     */
-    getWhatsAppAppealTemplate(phoneNumber, reason = 'I believe my account was banned by mistake. I use this number for my personal/business communication and it is very important to me.') {
+    getWhatsAppAppealTemplate(phoneNumber, reason) {
+        const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+        
+        const reasons = [
+            'I believe my account was flagged by mistake. I strictly use this number for my personal and primary business communication.',
+            'My account was deactivated suddenly and I am not sure why. I use this for talking to my clients and family.',
+            'I have been using WhatsApp for a long time and I always respect the terms. Please help me restore my account.',
+            'This number is vital for my daily work and I am unable to communicate with my team. I believe this ban is an error.'
+        ];
+
+        const selectedReason = reason || reasons[Math.floor(Math.random() * reasons.length)];
+        
         return {
-            to: 'support@whatsapp.com',
-            subject: `Question about account [${phoneNumber}]`,
+            to: 'support@support.whatsapp.com',
+            subject: `Question about account [${formattedNumber}]`,
             text: `Dear WhatsApp Support,
 
-I am writing to you regarding the ban on my account for the phone number: ${phoneNumber}.
+I am writing to inquire about the current ban on my WhatsApp account associated with the phone number: ${formattedNumber}.
 
-${reason}
+${selectedReason}
 
-I have read the Terms of Service and I believe I have followed them. If there were any unintentional violations, I sincerely apologize and assure you they will not happen again.
+I have carefully reviewed the Terms of Service and believe that my usage has been compliant. If any unintentional violation occurred, I sincerely apologize and will ensure it does not happen again.
 
-Please review my case and restore my account. Thank you for your assistance.
+Could you please review my case and assist in restoring my account access? It is very important for my personal and professional life.
+
+Thank you very much for your time and assistance.
 
 Best regards,
 A WhatsApp User`

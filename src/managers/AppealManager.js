@@ -1,6 +1,4 @@
 import EmailService from '../services/EmailService.js';
-import TempMailService from '../services/TempMailService.js';
-import pRetry from 'p-retry';
 
 class AppealManager {
     /**
@@ -11,21 +9,15 @@ class AppealManager {
      */
     async executeAppeal(number, reason) {
         try {
-            console.log(`[AppealManager] Starting appeal for ${number}...`);
+            const formattedNumber = number.startsWith('+') ? number : `+${number}`;
+            console.log(`[AppealManager] Starting direct appeal for ${formattedNumber}...`);
 
-            // 1. Create a temporary email account for identity/tracking
-            const tempAccount = await pRetry(() => TempMailService.createAccount(), { retries: 3 });
-            console.log(`[AppealManager] Temp Email created: ${tempAccount.address}`);
-
-            // 2. Prepare the appeal content
+            // 1. Prepare the appeal content
             const template = EmailService.getWhatsAppAppealTemplate(number, reason);
 
-            // 3. Send the appeal via email
-            // The 'from' must match the authenticated SMTP_USER to avoid rejection.
-            // The temp address is included as Reply-To so WhatsApp Support responses go there.
+            // 2. Send the appeal via email directly from SMTP_USER
             const result = await EmailService.sendMail({
                 from: process.env.SMTP_USER,
-                replyTo: tempAccount.address,
                 to: template.to,
                 subject: template.subject,
                 text: template.text
@@ -33,8 +25,8 @@ class AppealManager {
 
             return {
                 status: 'SUCCESS',
-                phoneNumber: number,
-                tempEmail: tempAccount.address,
+                phoneNumber: formattedNumber,
+                emailUsed: process.env.SMTP_USER,
                 messageId: result.messageId,
                 timestamp: new Date().toISOString()
             };

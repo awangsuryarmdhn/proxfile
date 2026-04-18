@@ -216,6 +216,7 @@
                 </div>
                 <div class="progress-meta">
                     <span id="progressText">0%</span>
+                    <span id="etaText">ETA: --:--</span>
                     <span id="speedText">0/min</span>
                 </div>
             </div>
@@ -285,19 +286,21 @@
         let isRunning = false;
 
         // Logging utility
-        function addLog(tag, msg) {
+        function addLog(tag, msg, type = '') {
             const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
             let tagClass = 'tag-info';
             if (tag === 'HIT') tagClass = 'tag-hit';
             if (tag === 'MISS') tagClass = 'tag-miss';
             if (tag === 'ERR') tagClass = 'tag-err';
 
+            const typeLabel = type ? `<span style="color: #38bdf8; font-weight: bold; margin-right: 8px;">[${type}]</span>` : '';
+
             const div = document.createElement('div');
             div.className = 'log-row';
             div.innerHTML = `
                 <span class="log-time">[${time}]</span>
                 <span class="log-tag ${tagClass}">${tag}</span>
-                <span class="log-msg">${msg}</span>
+                <span class="log-msg">${typeLabel}${msg}</span>
             `;
             logBox.appendChild(div);
             // Auto scroll
@@ -339,9 +342,9 @@
             let hits = 0;
             const startTime = Date.now();
             
-            // Parallel Chunk Processing
-            const MAX_CONCURRENT_CHUNKS = 3; 
-            const CHUNK_SIZE = 50; 
+            // Parallel Chunk Processing (Optimized for Speed + Security)
+            const MAX_CONCURRENT_CHUNKS = 5; 
+            const CHUNK_SIZE = 40; 
             const chunks = [];
             for (let i = 0; i < numbers.length; i += CHUNK_SIZE) {
                 chunks.push(numbers.slice(i, i + CHUNK_SIZE));
@@ -359,7 +362,7 @@
                         const resp = await fetch('/api/scan', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ numbers: chunk, concurrency: 10, timeout: 7000 })
+                            body: JSON.stringify({ numbers: chunk, concurrency: 15, timeout: 7000 })
                         });
                         
                         if (!resp.ok) {
@@ -373,7 +376,8 @@
                             results.push(r);
                             if (r.exists) {
                                 hits++;
-                                addLog('HIT', `Validated: ${r.number}`);
+                                const typeShort = r.type === 'Business' ? 'BIZ' : 'REG';
+                                addLog('HIT', `Validated: ${r.number}`, typeShort);
                             }
                         });
                         
@@ -409,9 +413,19 @@
             document.getElementById('progressText').innerText = `${pct}%`;
             document.getElementById('hitCount').innerText = hits;
             
-            const elapsedMin = (Date.now() - startTime) / 60000;
+            const elapsedMs = Date.now() - startTime;
+            const elapsedMin = elapsedMs / 60000;
             const speed = Math.floor(processed / elapsedMin) || 0;
             document.getElementById('speedText').innerText = `${speed} / min`;
+
+            // Calculate ETA
+            if (processed > 10) {
+                const msPerItem = elapsedMs / processed;
+                const remainingItems = numbers.length - processed;
+                const etaMs = remainingItems * msPerItem;
+                const etaMin = Math.ceil(etaMs / 60000);
+                document.getElementById('etaText').innerText = `ETA: ${etaMin}m left`;
+            }
         }
 
         stopBtn.onclick = () => {
@@ -421,11 +435,12 @@
         };
 
         downloadBtn.onclick = () => {
-            const content = results.map(r => `${r.number},${r.exists ? 'YES' : 'NO'}`).join('\n');
-            const blob = new Blob([content], { type: 'text/csv' });
+            const header = "Phone Number,Status,Account Type,Method\n";
+            const content = results.map(r => `${r.number},${r.exists ? 'YES' : 'NO'},${r.type || 'N/A'},${r.method || 'Unknown'}`).join('\n');
+            const blob = new Blob([header + content], { type: 'text/csv' });
             const a = document.createElement('a');
             a.href = window.URL.createObjectURL(blob);
-            a.download = `NITRO_EXPORT_${Date.now()}.csv`;
+            a.download = `NITRO_REPORT_${Date.now()}.csv`;
             a.click();
         };
 
